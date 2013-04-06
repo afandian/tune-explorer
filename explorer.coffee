@@ -110,12 +110,19 @@ class CanvasKeyboardAdaptor extends KeyboardAdaptor
     
     # Black note offset from corresponding white note, sharp and flat.
     @BLACK_NOTE_OFFSET_S = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
-    @BLACK_NOTE_OFFSET_F = - @BLACK_NOTE_WIDTH / 2
+    @BLACK_NOTE_OFFSET_F = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
+
+    # Marker for Middle X
+    @MIDDLE_C_MARKER_RADIUS = @WHITE_NOTE_WIDTH / 4
 
   # Set the keyboard range.
   range: (lowestPitch, highestPitch) ->
     @lowestPitch = lowestPitch
     @highestPitch = highestPitch
+
+    # Offset in pixels of the keyboard.
+    # Used to shift they keyboard left when lowest note isn't zero.
+    @keyboardOffset = -@keyOffset(lowestPitch)
 
   draw : (graphicsContext) ->
     # Draw the keyboard. As the code is single-threaded, no need to create a context object,
@@ -127,134 +134,76 @@ class CanvasKeyboardAdaptor extends KeyboardAdaptor
     @graphicsContext = graphicsContext
     
     # Ask to be drawn twice. First time draw the white notes, second. 
+    
+    # White colour keys.
     @drawCallbackmode = 0
+    @graphicsContext.fillStyle = "rgba(240, 240, 240, 1)"
+    @graphicsContext.strokeStyle = "rgba(10, 10, 10, 1)"
+    @graphicsContext.lineWidth = 1
     @keyboardDrawer.draw(this)
+
+    # Black colour keys.
     @drawCallbackmode = 1
+    @graphicsContext.fillStyle = "rgba(10, 10, 10, 1)"
+    @graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)"
+    @graphicsContext.lineWidth = 1
     @keyboardDrawer.draw(this)
+
+    # Extras.
+
+    # Middle C marker.
+    if @lowestPitch <= 60 <= @highestPitch
+      middleCX = @keyOffset(60) + @keyboardOffset 
+      graphicsContext.fillStyle = "rgba(0,0,0,0.25)"
+      graphicsContext.lineWidth = 1
+      graphicsContext.strokeStyle = "rgba(0,0,0,0,0.125)";
+
+      graphicsContext.beginPath();
+      graphicsContext.arc(middleCX + @WHITE_NOTE_WIDTH / 2, @WHITE_NOTE_HEIGHT * 0.75, @MIDDLE_C_MARKER_RADIUS, 0, 2 * Math.PI, false);
+      graphicsContext.fill();
+      graphicsContext.stroke();
 
   # Callback.
   key : (pitch) -> 
     # @graphicsContext set by draw()
 
+    # TODO: contextualDegree is called by keyOffset(). Optimise?
     contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
 
     # Called twice. First time, drawCallbackmode == 0, draw white notes.
     # Next time draw black notes, on top.
+    x = @keyOffset(pitch) + @keyboardOffset 
+    if @drawCallbackmode == 0 
+      if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL 
+        # White note.
+        @graphicsContext.fillRect(x, 0, @WHITE_NOTE_WIDTH, @WHITE_NOTE_HEIGHT)
+        @graphicsContext.strokeRect(x, 0, @WHITE_NOTE_WIDTH, @WHITE_NOTE_HEIGHT)
+    else
+      if contextualDegree.diatonicAccidental == ACCIDENTAL.SHARP
+        # Black note, sharp.
+        @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+        @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
 
+      else if contextualDegree.diatonicAccidental == ACCIDENTAL.FLAT
+        # Black note, flat.
+        @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+        @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+
+
+  # Calculate the offset of a key for a given pitch in absolute terms.
+  # i.e. no keyboard offset. This is used to calculate the keyboard offset.
+  keyOffset : (pitch) =>
+    contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
     octaveOffset = (contextualDegree.octave * 7  * @WHITE_NOTE_WIDTH)
-    if @drawCallbackmode == 0 && contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL 
-      @graphicsContext.fillStyle = "rgba(240, 240, 240, 1)"
-      @graphicsContext.strokeStyle = "rgba(10, 10, 10, 1)"
-      @graphicsContext.lineWidth = 1
-
-      x = octaveOffset + contextualDegree.diatonicDegree * @WHITE_NOTE_WIDTH
-      @graphicsContext.fillRect(x, 0, @WHITE_NOTE_WIDTH, @WHITE_NOTE_HEIGHT)
-      @graphicsContext.strokeRect(x, 0, @WHITE_NOTE_WIDTH, @WHITE_NOTE_HEIGHT)
-    else if contextualDegree.diatonicAccidental == ACCIDENTAL.SHARP
-      # Black note
-      @graphicsContext.fillStyle = "rgba(10, 10, 10, 1)"
-      @graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)"
-      @graphicsContext.lineWidth = 4
-
-      x = octaveOffset + contextualDegree.diatonicDegree * @WHITE_NOTE_WIDTH
-      @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
-      @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
-
-    else if contextualDegree.diatonicAccidental == ACCIDENTAL.FLAT
-      # Black note
-      @graphicsContext.fillStyle = "rgba(10, 10, 10, 1)"
-      @graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)"
-      @graphicsContext.lineWidth = 4
-
-      x = octaveOffset + (contextualDegree.diatonicDegree  + 1) * @WHITE_NOTE_WIDTH
-      @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
-      @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
     
-
-###
-
-# A keyboard adaptor that creates HTML elements.
-class ElementKeyboardAdaptor extends KeyboardAdaptor
-  constructor : (@keyboard, @$container, @WHITE_NOTE_WIDTH, @BLACK_NOTE_WIDTH, @WHITE_NOTE_HEIGHT, @BLACK_NOTE_HEIGHT) ->
-
-    @$container.css("height", @WHITE_NOTE_HEIGHT)
-    @$container.parent().css("height", @WHITE_NOTE_HEIGHT)
-
-    @BLACK_HINT = 1
-    @BLACK_NOTE_OFFSET = @WHITE_NOTE_WIDTH - (@BLACK_NOTE_WIDTH / 2)
-
-  # Draw the keyboard!
-  draw : () ->
-    @x = 0
-    @keyboard.draw(this)
+    if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL 
+      octaveOffset + contextualDegree.diatonicDegree * @WHITE_NOTE_WIDTH
+    else if contextualDegree.diatonicAccidental == ACCIDENTAL.SHARP
+      octaveOffset + contextualDegree.diatonicDegree * @WHITE_NOTE_WIDTH
+    else if contextualDegree.diatonicAccidental == ACCIDENTAL.FLAT 
+      octaveOffset + (contextualDegree.diatonicDegree - 1) * @WHITE_NOTE_WIDTH
 
 
-  # Draw a key. Callback from draw().
-  key : (pitch) -> 
-        contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
-
-        $key = $("<div></div>")
-        $key.css("position", "absolute")
-        $key.css("top", 0)
-        $key.css("cursor", "hand")
-
-        $key_label = $("<div></div>")
-        $key_label.css("position", "absolute")
-        $key_label.css("bottom", "0px")
-
-        $key_label.css("-webkit-user-select", "none")
-        $key_label.css("-khtml-user-select", "none")
-        $key_label.css("-moz-user-select", "none")
-        $key_label.css("-o-user-select", "none")
-        $key_label.css("user-select", "none")
-
-        $key_label.css("text-align", "center")
-        $key_label.css("cursor", "hand")
-
-        if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL
-          @x = @x + @WHITE_NOTE_WIDTH
-          $key.css("background-color", "white")
-          $key.css("color", "black")
-          $key.css("border", "1px solid #e0e0e0")
-          $key.css("height", @WHITE_NOTE_HEIGHT)
-          $key.css("width", @WHITE_NOTE_WIDTH)
-          $key.css("left", @x)
-          $key.css("z-index", 1)
-
-          $key_label.css("width", @WHITE_NOTE_WIDTH)
-        else
-          # Black note
-          $key.css("background-color", "black")
-          $key.css("color", "white")
-          $key.css("border", "1px solid #a0a0a0")
-          $key.css("height", @BLACK_NOTE_HEIGHT)
-          $key.css("width", @BLACK_NOTE_WIDTH)
-
-          $key.css("-webkit-border-bottom-right-radius", "4px")
-          $key.css("-webkit-border-bottom-left-radius", "4px")
-          $key.css("-moz-border-radius-bottomright", "4px")
-          $key.css("-moz-border-radius-bottomleft", "4px")
-          $key.css("border-bottom-right-radius", "4px")
-          $key.css("border-bottom-left-radius", "4px")
-
-          $key.css("z-index", 2)
-
-          if contextualDegree.chromaticDegree == 6 || contextualDegree.chromaticDegree == 1
-              $key.css("left", (@x + @BLACK_NOTE_OFFSET) + @BLACK_HINT)
-          else if contextualDegree.chromaticDegree == 10 || contextualDegree.chromaticDegree == 3
-              $key.css("left", (@x + @BLACK_NOTE_OFFSET) - @BLACK_HINT)
-          else
-              $key.css("left", @x + @BLACK_NOTE_OFFSET)
-
-        $key_label.css("width", @BLACK_NOTE_WIDTH)
-
-        $key_label.html(theory.noteName(pitch))
-        $key.append($key_label)
-
-        @$container.append($key)
-
-###
-  
 # A keyboard
 class Keyboard
   constructor: (@LOWEST_PITCH, @HIGHEST_PITCH) ->
@@ -303,8 +252,10 @@ class CanvasRenderer
     @render()
     @requestFrame.call(window, @renderLoop)
 
-keyboard = new Keyboard(0, 127)
+keyboard = new Keyboard(60 - (12*2), 60 + (12*2))
+
 keyboardDrawer = new KeyboardDrawer(keyboard)
+
 
 # For HTML element keyboard.
 #$container = $("<div></div>")

@@ -11,9 +11,9 @@ joe@afandian.com
 
 (function() {
   var ACCIDENTAL, CanvasKeyboardAdaptor, CanvasRenderer, Context, Keyboard, KeyboardAdaptor, KeyboardDrawer, MIDDLE_C, Theory, adaptor, canvas, context, keyboard, keyboardDrawer, renderer, theory,
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __hasProp = {}.hasOwnProperty,
-    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
-    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
+    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
 
   ACCIDENTAL = {
     SHARP: 's',
@@ -191,139 +191,82 @@ joe@afandian.com
       this.BLACK_NOTE_WIDTH = BLACK_NOTE_WIDTH;
       this.WHITE_NOTE_HEIGHT = WHITE_NOTE_HEIGHT;
       this.BLACK_NOTE_HEIGHT = BLACK_NOTE_HEIGHT;
+      this.keyOffset = __bind(this.keyOffset, this);
       this.BLACK_NOTE_OFFSET_S = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
-      this.BLACK_NOTE_OFFSET_F = -this.BLACK_NOTE_WIDTH / 2;
+      this.BLACK_NOTE_OFFSET_F = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
+      this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 4;
     }
 
     CanvasKeyboardAdaptor.prototype.range = function(lowestPitch, highestPitch) {
       this.lowestPitch = lowestPitch;
-      return this.highestPitch = highestPitch;
+      this.highestPitch = highestPitch;
+      return this.keyboardOffset = -this.keyOffset(lowestPitch);
     };
 
     CanvasKeyboardAdaptor.prototype.draw = function(graphicsContext) {
+      var middleCX;
+
       this.graphicsContext = graphicsContext;
       this.drawCallbackmode = 0;
+      this.graphicsContext.fillStyle = "rgba(240, 240, 240, 1)";
+      this.graphicsContext.strokeStyle = "rgba(10, 10, 10, 1)";
+      this.graphicsContext.lineWidth = 1;
       this.keyboardDrawer.draw(this);
       this.drawCallbackmode = 1;
-      return this.keyboardDrawer.draw(this);
+      this.graphicsContext.fillStyle = "rgba(10, 10, 10, 1)";
+      this.graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)";
+      this.graphicsContext.lineWidth = 1;
+      this.keyboardDrawer.draw(this);
+      if ((this.lowestPitch <= 60 && 60 <= this.highestPitch)) {
+        middleCX = this.keyOffset(60) + this.keyboardOffset;
+        graphicsContext.fillStyle = "rgba(0,0,0,0.25)";
+        graphicsContext.lineWidth = 1;
+        graphicsContext.strokeStyle = "rgba(0,0,0,0,0.125)";
+        graphicsContext.beginPath();
+        graphicsContext.arc(middleCX + this.WHITE_NOTE_WIDTH / 2, this.WHITE_NOTE_HEIGHT * 0.75, this.MIDDLE_C_MARKER_RADIUS, 0, 2 * Math.PI, false);
+        graphicsContext.fill();
+        return graphicsContext.stroke();
+      }
     };
 
     CanvasKeyboardAdaptor.prototype.key = function(pitch) {
-      var contextualDegree, octaveOffset, x;
+      var contextualDegree, x;
+
+      contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
+      x = this.keyOffset(pitch) + this.keyboardOffset;
+      if (this.drawCallbackmode === 0) {
+        if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
+          this.graphicsContext.fillRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
+          return this.graphicsContext.strokeRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
+        }
+      } else {
+        if (contextualDegree.diatonicAccidental === ACCIDENTAL.SHARP) {
+          this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+          return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.FLAT) {
+          this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+          return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        }
+      }
+    };
+
+    CanvasKeyboardAdaptor.prototype.keyOffset = function(pitch) {
+      var contextualDegree, octaveOffset;
 
       contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
       octaveOffset = contextualDegree.octave * 7 * this.WHITE_NOTE_WIDTH;
-      if (this.drawCallbackmode === 0 && contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
-        this.graphicsContext.fillStyle = "rgba(240, 240, 240, 1)";
-        this.graphicsContext.strokeStyle = "rgba(10, 10, 10, 1)";
-        this.graphicsContext.lineWidth = 1;
-        x = octaveOffset + contextualDegree.diatonicDegree * this.WHITE_NOTE_WIDTH;
-        this.graphicsContext.fillRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
-        return this.graphicsContext.strokeRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
+      if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
+        return octaveOffset + contextualDegree.diatonicDegree * this.WHITE_NOTE_WIDTH;
       } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.SHARP) {
-        this.graphicsContext.fillStyle = "rgba(10, 10, 10, 1)";
-        this.graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)";
-        this.graphicsContext.lineWidth = 4;
-        x = octaveOffset + contextualDegree.diatonicDegree * this.WHITE_NOTE_WIDTH;
-        this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
-        return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        return octaveOffset + contextualDegree.diatonicDegree * this.WHITE_NOTE_WIDTH;
       } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.FLAT) {
-        this.graphicsContext.fillStyle = "rgba(10, 10, 10, 1)";
-        this.graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)";
-        this.graphicsContext.lineWidth = 4;
-        x = octaveOffset + (contextualDegree.diatonicDegree + 1) * this.WHITE_NOTE_WIDTH;
-        this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
-        return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        return octaveOffset + (contextualDegree.diatonicDegree - 1) * this.WHITE_NOTE_WIDTH;
       }
     };
 
     return CanvasKeyboardAdaptor;
 
   })(KeyboardAdaptor);
-
-  /*
-  
-  # A keyboard adaptor that creates HTML elements.
-  class ElementKeyboardAdaptor extends KeyboardAdaptor
-    constructor : (@keyboard, @$container, @WHITE_NOTE_WIDTH, @BLACK_NOTE_WIDTH, @WHITE_NOTE_HEIGHT, @BLACK_NOTE_HEIGHT) ->
-  
-      @$container.css("height", @WHITE_NOTE_HEIGHT)
-      @$container.parent().css("height", @WHITE_NOTE_HEIGHT)
-  
-      @BLACK_HINT = 1
-      @BLACK_NOTE_OFFSET = @WHITE_NOTE_WIDTH - (@BLACK_NOTE_WIDTH / 2)
-  
-    # Draw the keyboard!
-    draw : () ->
-      @x = 0
-      @keyboard.draw(this)
-  
-  
-    # Draw a key. Callback from draw().
-    key : (pitch) -> 
-          contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
-  
-          $key = $("<div></div>")
-          $key.css("position", "absolute")
-          $key.css("top", 0)
-          $key.css("cursor", "hand")
-  
-          $key_label = $("<div></div>")
-          $key_label.css("position", "absolute")
-          $key_label.css("bottom", "0px")
-  
-          $key_label.css("-webkit-user-select", "none")
-          $key_label.css("-khtml-user-select", "none")
-          $key_label.css("-moz-user-select", "none")
-          $key_label.css("-o-user-select", "none")
-          $key_label.css("user-select", "none")
-  
-          $key_label.css("text-align", "center")
-          $key_label.css("cursor", "hand")
-  
-          if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL
-            @x = @x + @WHITE_NOTE_WIDTH
-            $key.css("background-color", "white")
-            $key.css("color", "black")
-            $key.css("border", "1px solid #e0e0e0")
-            $key.css("height", @WHITE_NOTE_HEIGHT)
-            $key.css("width", @WHITE_NOTE_WIDTH)
-            $key.css("left", @x)
-            $key.css("z-index", 1)
-  
-            $key_label.css("width", @WHITE_NOTE_WIDTH)
-          else
-            # Black note
-            $key.css("background-color", "black")
-            $key.css("color", "white")
-            $key.css("border", "1px solid #a0a0a0")
-            $key.css("height", @BLACK_NOTE_HEIGHT)
-            $key.css("width", @BLACK_NOTE_WIDTH)
-  
-            $key.css("-webkit-border-bottom-right-radius", "4px")
-            $key.css("-webkit-border-bottom-left-radius", "4px")
-            $key.css("-moz-border-radius-bottomright", "4px")
-            $key.css("-moz-border-radius-bottomleft", "4px")
-            $key.css("border-bottom-right-radius", "4px")
-            $key.css("border-bottom-left-radius", "4px")
-  
-            $key.css("z-index", 2)
-  
-            if contextualDegree.chromaticDegree == 6 || contextualDegree.chromaticDegree == 1
-                $key.css("left", (@x + @BLACK_NOTE_OFFSET) + @BLACK_HINT)
-            else if contextualDegree.chromaticDegree == 10 || contextualDegree.chromaticDegree == 3
-                $key.css("left", (@x + @BLACK_NOTE_OFFSET) - @BLACK_HINT)
-            else
-                $key.css("left", @x + @BLACK_NOTE_OFFSET)
-  
-          $key_label.css("width", @BLACK_NOTE_WIDTH)
-  
-          $key_label.html(theory.noteName(pitch))
-          $key.append($key_label)
-  
-          @$container.append($key)
-  */
-
 
   Keyboard = (function() {
     function Keyboard(LOWEST_PITCH, HIGHEST_PITCH) {
@@ -388,7 +331,7 @@ joe@afandian.com
 
   })();
 
-  keyboard = new Keyboard(0, 127);
+  keyboard = new Keyboard(60 - (12 * 2), 60 + (12 * 2));
 
   keyboardDrawer = new KeyboardDrawer(keyboard);
 

@@ -10,7 +10,7 @@ joe@afandian.com
 
 
 (function() {
-  var ACCIDENTAL, CanvasKeyboardAdaptor, CanvasRenderer, Context, Keyboard, KeyboardAdaptor, KeyboardDrawer, MIDDLE_C, Theory, adaptor, canvas, context, keyboard, keyboardDrawer, renderer, theory,
+  var ACCIDENTAL, CanvasKeyboardAdaptor, CanvasRenderer, Keyboard, KeyboardAdaptor, KeyboardDrawer, MIDDLE_C, Theory, TuneTreeContext, TuneTreeState, constructContext, context, theory,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
     __hasProp = {}.hasOwnProperty,
     __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
@@ -185,16 +185,16 @@ joe@afandian.com
   CanvasKeyboardAdaptor = (function(_super) {
     __extends(CanvasKeyboardAdaptor, _super);
 
-    function CanvasKeyboardAdaptor(keyboardDrawer, WHITE_NOTE_WIDTH, BLACK_NOTE_WIDTH, WHITE_NOTE_HEIGHT, BLACK_NOTE_HEIGHT) {
+    function CanvasKeyboardAdaptor(keyboardDrawer, WHITE_NOTE_WIDTH, height) {
       this.keyboardDrawer = keyboardDrawer;
       this.WHITE_NOTE_WIDTH = WHITE_NOTE_WIDTH;
-      this.BLACK_NOTE_WIDTH = BLACK_NOTE_WIDTH;
-      this.WHITE_NOTE_HEIGHT = WHITE_NOTE_HEIGHT;
-      this.BLACK_NOTE_HEIGHT = BLACK_NOTE_HEIGHT;
       this.keyOffset = __bind(this.keyOffset, this);
+      this.WHITE_NOTE_HEIGHT = height;
+      this.BLACK_NOTE_HEIGHT = height * 0.5;
+      this.BLACK_NOTE_WIDTH = this.WHITE_NOTE_WIDTH / 2;
+      this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 4;
       this.BLACK_NOTE_OFFSET_S = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
       this.BLACK_NOTE_OFFSET_F = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
-      this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 4;
     }
 
     CanvasKeyboardAdaptor.prototype.range = function(lowestPitch, highestPitch) {
@@ -278,27 +278,45 @@ joe@afandian.com
 
   })();
 
-  Context = (function() {
-    function Context(renderer) {
+  TuneTreeContext = (function() {
+    function TuneTreeContext(renderer, state, adaptor) {
       this.renderer = renderer;
-      this.renderer.render;
+      this.state = state;
+      this.adaptor = adaptor;
+      this.redraw = __bind(this.redraw, this);
+      window.addEventListener("redraw", this.redraw);
     }
 
-    Context.prototype.run = function() {
+    TuneTreeContext.prototype.run = function() {
       return this.renderer.renderLoop();
     };
 
-    Context.prototype.tick = function() {};
+    TuneTreeContext.prototype.redraw = function() {
+      return this.adaptor.draw(this.renderer.graphicsContext);
+    };
 
-    return Context;
+    return TuneTreeContext;
+
+  })();
+
+  TuneTreeState = (function() {
+    function TuneTreeState() {
+      this.state = [];
+    }
+
+    TuneTreeState.prototype.maxDepth = function() {
+      return 10;
+    };
+
+    return TuneTreeState;
 
   })();
 
   CanvasRenderer = (function() {
-    function CanvasRenderer(canvas, keyboardDrawAdaptor) {
+    function CanvasRenderer(canvas) {
       this.canvas = canvas;
-      this.keyboardDrawAdaptor = keyboardDrawAdaptor;
       this.renderLoop = __bind(this.renderLoop, this);
+      this.redrawEvent = new CustomEvent("redraw");
       this.canvasSize();
       this.requestFrame = (function() {
         return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || function() {
@@ -310,16 +328,23 @@ joe@afandian.com
     CanvasRenderer.prototype.canvasSize = function() {
       this.canvas.width = window.innerWidth;
       this.canvas.height = window.innerHeight;
-      this.context = this.canvas.getContext("2d");
+      this.graphicsContext = this.canvas.getContext("2d");
       return window.addEventListener('resize', this.canvasSize, false);
     };
 
+    CanvasRenderer.prototype.setDrawCallback = function(drawCallback) {
+      this.drawCallback = drawCallback;
+    };
+
     CanvasRenderer.prototype.render = function() {
-      this.context.save();
-      this.context.setTransform(1, 0, 0, 1, 0, 0);
-      this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
-      this.context.restore();
-      return this.keyboardDrawAdaptor.draw(this.context);
+      this.graphicsContext.save();
+      this.graphicsContext.setTransform(1, 0, 0, 1, 0, 0);
+      this.graphicsContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.graphicsContext.restore();
+      if (this.drawCallback) {
+        this.drawCallback();
+      }
+      return window.dispatchEvent(this.redrawEvent);
     };
 
     CanvasRenderer.prototype.renderLoop = function() {
@@ -331,17 +356,22 @@ joe@afandian.com
 
   })();
 
-  keyboard = new Keyboard(60 - (12 * 2), 60 + (12 * 2));
+  constructContext = function() {
+    var KEYBOARD_HEIGHT, KEY_WIDTH, adaptor, canvas, context, keyboard, keyboardDrawer, renderer;
 
-  keyboardDrawer = new KeyboardDrawer(keyboard);
+    KEYBOARD_HEIGHT = 30;
+    KEY_WIDTH = 10;
+    keyboard = new Keyboard(60 - (12 * 2), 60 + (12 * 2));
+    keyboardDrawer = new KeyboardDrawer(keyboard);
+    canvas = document.getElementById("canvas");
+    this.state = new TuneTreeState();
+    adaptor = new CanvasKeyboardAdaptor(keyboardDrawer, KEY_WIDTH, KEYBOARD_HEIGHT);
+    renderer = new CanvasRenderer(canvas, context);
+    context = new TuneTreeContext(renderer, state, adaptor);
+    return context;
+  };
 
-  canvas = document.getElementById("canvas");
-
-  adaptor = new CanvasKeyboardAdaptor(keyboardDrawer, 20, 8, 100, 50);
-
-  renderer = new CanvasRenderer(canvas, adaptor);
-
-  context = new Context(renderer);
+  context = constructContext();
 
   context.run();
 

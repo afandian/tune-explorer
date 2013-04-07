@@ -106,14 +106,19 @@ class KeyboardAdaptor
 
 # A keyboard adaptor that draws on a canvas.
 class CanvasKeyboardAdaptor extends KeyboardAdaptor
-  constructor : (@keyboardDrawer, @WHITE_NOTE_WIDTH, @BLACK_NOTE_WIDTH, @WHITE_NOTE_HEIGHT, @BLACK_NOTE_HEIGHT) -> 
+  constructor : (@keyboardDrawer, @WHITE_NOTE_WIDTH, height) -> 
     
-    # Black note offset from corresponding white note, sharp and flat.
-    @BLACK_NOTE_OFFSET_S = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
-    @BLACK_NOTE_OFFSET_F = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
+    @WHITE_NOTE_HEIGHT = height
+    @BLACK_NOTE_HEIGHT = height * 0.5
+
+    @BLACK_NOTE_WIDTH = @WHITE_NOTE_WIDTH / 2
 
     # Marker for Middle X
     @MIDDLE_C_MARKER_RADIUS = @WHITE_NOTE_WIDTH / 4
+
+    # Black note offset from corresponding white note, sharp and flat.
+    @BLACK_NOTE_OFFSET_S = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
+    @BLACK_NOTE_OFFSET_F = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
 
   # Set the keyboard range.
   range: (lowestPitch, highestPitch) ->
@@ -208,19 +213,32 @@ class CanvasKeyboardAdaptor extends KeyboardAdaptor
 class Keyboard
   constructor: (@LOWEST_PITCH, @HIGHEST_PITCH) ->
 
-
-class Context
-  constructor: (@renderer) -> 
-    @renderer.render
+# Overall context for tune tree.
+class TuneTreeContext
+  constructor: (@renderer, @state, @adaptor) ->
+    window.addEventListener("redraw", @redraw)
 
   run: () -> 
+    # Start the render loop in motion.
     @renderer.renderLoop()
 
-  tick: () -> 
-    
+  redraw : () =>
+    # TODO add stuff here. Maybe pass in something different to @adaptor.draw().
+    @adaptor.draw(@renderer.graphicsContext)
+   
+
+# The current state of the tune tree.
+class TuneTreeState
+  constructor : () ->
+    @state = []
+
+  maxDepth : () ->
+    10
 
 class CanvasRenderer
-  constructor: (@canvas, @keyboardDrawAdaptor) ->
+  constructor: (@canvas) ->
+    @redrawEvent = new CustomEvent("redraw")
+
     @canvasSize()
 
     @requestFrame = (() -> 
@@ -229,45 +247,68 @@ class CanvasRenderer
       window.mozRequestAnimationFrame    ||
       () -> window.setTimeout(callback, 1000 / 60))()
 
+    
+
   canvasSize: () -> 
     @canvas.width = window.innerWidth
     @canvas.height = window.innerHeight
-    @context = @canvas.getContext("2d")
-
+    @graphicsContext = @canvas.getContext("2d")
     window.addEventListener('resize', @canvasSize, false)
+  
+
+  # A bit of dependency injection crud.
+  setDrawCallback : (@drawCallback) ->
 
   render: () -> 
-    # Clear context.
+    # Clear canvas prior to drawing.
     # Unclear about efficiency of this vs width = width.
-    @context.save();
-    @context.setTransform(1, 0, 0, 1, 0, 0);
-    @context.clearRect(0, 0, @canvas.width, @canvas.height);
-    @context.restore();
+    @graphicsContext.save()
+    @graphicsContext.setTransform(1, 0, 0, 1, 0, 0)
+    @graphicsContext.clearRect(0, 0, @canvas.width, @canvas.height)
+    @graphicsContext.restore()
 
     #@canvas.width = @canvas.width
-    @keyboardDrawAdaptor.draw(@context)
     
+    if @drawCallback
+      @drawCallback()
+
+    window.dispatchEvent(@redrawEvent)    
 
   renderLoop: =>
     @render()
     @requestFrame.call(window, @renderLoop)
 
-keyboard = new Keyboard(60 - (12*2), 60 + (12*2))
-
-keyboardDrawer = new KeyboardDrawer(keyboard)
 
 
-# For HTML element keyboard.
-#$container = $("<div></div>")
-#$("body").append($container)
-#elementKeyboardDrawer = new ElementKeyboardAdaptor(keyboardDrawer, $container, 40, 25, 100, 50)
-#elementKeyboardDrawer.draw()
 
 
-# For canvas drawing.
 
-canvas = document.getElementById("canvas")
-adaptor = new CanvasKeyboardAdaptor(keyboardDrawer, 20, 8, 100, 50)
-renderer = new CanvasRenderer(canvas, adaptor)
-context = new Context(renderer)
+constructContext = () ->
+  KEYBOARD_HEIGHT = 30
+  KEY_WIDTH = 10
+
+  # Keyboard content logic.
+  keyboard = new Keyboard(60 - (12*2), 60 + (12*2))
+
+  # For mediating between the keyboard and the canvas adaptor.
+  keyboardDrawer = new KeyboardDrawer(keyboard)
+
+  # For drawing on!
+  canvas = document.getElementById("canvas")
+
+  # Current state.
+  @state = new TuneTreeState()
+
+  # For drawing!
+  adaptor = new CanvasKeyboardAdaptor(keyboardDrawer, KEY_WIDTH, KEYBOARD_HEIGHT)
+  
+  # For keeping the canvas filled.
+  renderer = new CanvasRenderer(canvas, context)
+
+  # To bind it all together.
+  context = new TuneTreeContext(renderer, state, adaptor)
+  
+  context
+
+context = constructContext()
 context.run()

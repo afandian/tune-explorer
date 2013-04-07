@@ -10,10 +10,8 @@ joe@afandian.com
 
 
 (function() {
-  var ACCIDENTAL, CanvasKeyboardAdaptor, CanvasRenderer, Keyboard, KeyboardAdaptor, KeyboardDrawer, MIDDLE_C, Theory, TuneTreeContext, TuneTreeState, constructContext, context, theory,
-    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; },
-    __hasProp = {}.hasOwnProperty,
-    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+  var ACCIDENTAL, CanvasKeyboardDrawer, CanvasManager, Keyboard, MIDDLE_C, Theory, TuneTreeContext, TuneTreeState, constructContext, context, theory,
+    __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   ACCIDENTAL = {
     SHARP: 's',
@@ -155,38 +153,11 @@ joe@afandian.com
 
   theory = new Theory;
 
-  KeyboardDrawer = (function() {
-    function KeyboardDrawer(keyboard) {
+  CanvasKeyboardDrawer = (function() {
+    function CanvasKeyboardDrawer(keyboard, WHITE_NOTE_WIDTH, height) {
+      var contextualDegree;
+
       this.keyboard = keyboard;
-    }
-
-    KeyboardDrawer.prototype.draw = function(adaptor) {
-      var pitch, _i, _ref, _ref1, _results;
-
-      adaptor.range(this.keyboard.LOWEST_PITCH, this.keyboard.HIGHEST_PITCH);
-      _results = [];
-      for (pitch = _i = _ref = this.keyboard.LOWEST_PITCH, _ref1 = this.keyboard.HIGHEST_PITCH; _ref <= _ref1 ? _i <= _ref1 : _i >= _ref1; pitch = _ref <= _ref1 ? ++_i : --_i) {
-        _results.push(adaptor.key(pitch));
-      }
-      return _results;
-    };
-
-    return KeyboardDrawer;
-
-  })();
-
-  KeyboardAdaptor = (function() {
-    function KeyboardAdaptor() {}
-
-    return KeyboardAdaptor;
-
-  })();
-
-  CanvasKeyboardAdaptor = (function(_super) {
-    __extends(CanvasKeyboardAdaptor, _super);
-
-    function CanvasKeyboardAdaptor(keyboardDrawer, WHITE_NOTE_WIDTH, height) {
-      this.keyboardDrawer = keyboardDrawer;
       this.WHITE_NOTE_WIDTH = WHITE_NOTE_WIDTH;
       this.keyOffset = __bind(this.keyOffset, this);
       this.WHITE_NOTE_HEIGHT = height;
@@ -195,30 +166,33 @@ joe@afandian.com
       this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 4;
       this.BLACK_NOTE_OFFSET_S = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
       this.BLACK_NOTE_OFFSET_F = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
+      this.keyboardOffset = -this.keyOffset(contextualDegree = theory.positionRelativeToPitch(this.keyboard.LOWEST_PITCH, MIDDLE_C));
     }
 
-    CanvasKeyboardAdaptor.prototype.range = function(lowestPitch, highestPitch) {
-      this.lowestPitch = lowestPitch;
-      this.highestPitch = highestPitch;
-      return this.keyboardOffset = -this.keyOffset(lowestPitch);
-    };
-
-    CanvasKeyboardAdaptor.prototype.draw = function(graphicsContext) {
-      var middleCX;
+    CanvasKeyboardDrawer.prototype.draw = function(graphicsContext) {
+      var contextualDegree, middleCX, pitch, _i, _j, _ref, _ref1, _ref2, _ref3;
 
       this.graphicsContext = graphicsContext;
-      this.drawCallbackmode = 0;
       this.graphicsContext.fillStyle = "rgba(240, 240, 240, 1)";
       this.graphicsContext.strokeStyle = "rgba(10, 10, 10, 1)";
       this.graphicsContext.lineWidth = 1;
-      this.keyboardDrawer.draw(this);
-      this.drawCallbackmode = 1;
+      for (pitch = _i = _ref = this.keyboard.LOWEST_PITCH, _ref1 = this.keyboard.HIGHEST_PITCH; _ref <= _ref1 ? _i <= _ref1 : _i >= _ref1; pitch = _ref <= _ref1 ? ++_i : --_i) {
+        contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
+        if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
+          this.drawKey(contextualDegree);
+        }
+      }
       this.graphicsContext.fillStyle = "rgba(10, 10, 10, 1)";
       this.graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)";
       this.graphicsContext.lineWidth = 1;
-      this.keyboardDrawer.draw(this);
-      if ((this.lowestPitch <= 60 && 60 <= this.highestPitch)) {
-        middleCX = this.keyOffset(60) + this.keyboardOffset;
+      for (pitch = _j = _ref2 = this.keyboard.LOWEST_PITCH, _ref3 = this.keyboard.HIGHEST_PITCH; _ref2 <= _ref3 ? _j <= _ref3 : _j >= _ref3; pitch = _ref2 <= _ref3 ? ++_j : --_j) {
+        contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
+        if (contextualDegree.diatonicAccidental !== ACCIDENTAL.NATURAL) {
+          this.drawKey(contextualDegree);
+        }
+      }
+      if ((this.keyboard.LOWEST_PITCH <= 60 && 60 <= this.keyboard.HIGHEST_PITCH)) {
+        middleCX = this.keyOffset(theory.positionRelativeToPitch(60, MIDDLE_C)) + this.keyboardOffset;
         graphicsContext.fillStyle = "rgba(0,0,0,0.25)";
         graphicsContext.lineWidth = 1;
         graphicsContext.strokeStyle = "rgba(0,0,0,0,0.125)";
@@ -229,31 +203,25 @@ joe@afandian.com
       }
     };
 
-    CanvasKeyboardAdaptor.prototype.key = function(pitch) {
-      var contextualDegree, x;
+    CanvasKeyboardDrawer.prototype.drawKey = function(contextualDegree) {
+      var x;
 
-      contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
-      x = this.keyOffset(pitch) + this.keyboardOffset;
-      if (this.drawCallbackmode === 0) {
-        if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
-          this.graphicsContext.fillRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
-          return this.graphicsContext.strokeRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
-        }
-      } else {
-        if (contextualDegree.diatonicAccidental === ACCIDENTAL.SHARP) {
-          this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
-          return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
-        } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.FLAT) {
-          this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
-          return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
-        }
+      x = this.keyOffset(contextualDegree) + this.keyboardOffset;
+      if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
+        this.graphicsContext.fillRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
+        return this.graphicsContext.strokeRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
+      } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.SHARP) {
+        this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+      } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.FLAT) {
+        this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
       }
     };
 
-    CanvasKeyboardAdaptor.prototype.keyOffset = function(pitch) {
-      var contextualDegree, octaveOffset;
+    CanvasKeyboardDrawer.prototype.keyOffset = function(contextualDegree) {
+      var octaveOffset;
 
-      contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
       octaveOffset = contextualDegree.octave * 7 * this.WHITE_NOTE_WIDTH;
       if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
         return octaveOffset + contextualDegree.diatonicDegree * this.WHITE_NOTE_WIDTH;
@@ -264,9 +232,9 @@ joe@afandian.com
       }
     };
 
-    return CanvasKeyboardAdaptor;
+    return CanvasKeyboardDrawer;
 
-  })(KeyboardAdaptor);
+  })();
 
   Keyboard = (function() {
     function Keyboard(LOWEST_PITCH, HIGHEST_PITCH) {
@@ -279,20 +247,26 @@ joe@afandian.com
   })();
 
   TuneTreeContext = (function() {
-    function TuneTreeContext(renderer, state, adaptor) {
-      this.renderer = renderer;
+    function TuneTreeContext(manager, state, drawer) {
+      this.manager = manager;
       this.state = state;
-      this.adaptor = adaptor;
+      this.drawer = drawer;
       this.redraw = __bind(this.redraw, this);
       window.addEventListener("redraw", this.redraw);
     }
 
     TuneTreeContext.prototype.run = function() {
-      return this.renderer.renderLoop();
+      return this.manager.renderLoop();
     };
 
     TuneTreeContext.prototype.redraw = function() {
-      return this.adaptor.draw(this.renderer.graphicsContext);
+      var dep, _i, _ref, _results;
+
+      _results = [];
+      for (dep = _i = 0, _ref = this.state.depth; 0 <= _ref ? _i <= _ref : _i >= _ref; dep = 0 <= _ref ? ++_i : --_i) {
+        _results.push(this.drawer.draw(this.manager.graphicsContext));
+      }
+      return _results;
     };
 
     return TuneTreeContext;
@@ -302,18 +276,19 @@ joe@afandian.com
   TuneTreeState = (function() {
     function TuneTreeState() {
       this.state = [];
+      this.depth = 5;
     }
 
-    TuneTreeState.prototype.maxDepth = function() {
-      return 10;
+    TuneTreeState.prototype.depth = function() {
+      return this.depth;
     };
 
     return TuneTreeState;
 
   })();
 
-  CanvasRenderer = (function() {
-    function CanvasRenderer(canvas) {
+  CanvasManager = (function() {
+    function CanvasManager(canvas) {
       this.canvas = canvas;
       this.renderLoop = __bind(this.renderLoop, this);
       this.redrawEvent = new CustomEvent("redraw");
@@ -325,49 +300,41 @@ joe@afandian.com
       })();
     }
 
-    CanvasRenderer.prototype.canvasSize = function() {
+    CanvasManager.prototype.canvasSize = function() {
       this.canvas.width = window.innerWidth;
       this.canvas.height = window.innerHeight;
       this.graphicsContext = this.canvas.getContext("2d");
       return window.addEventListener('resize', this.canvasSize, false);
     };
 
-    CanvasRenderer.prototype.setDrawCallback = function(drawCallback) {
-      this.drawCallback = drawCallback;
-    };
-
-    CanvasRenderer.prototype.render = function() {
+    CanvasManager.prototype.render = function() {
       this.graphicsContext.save();
       this.graphicsContext.setTransform(1, 0, 0, 1, 0, 0);
       this.graphicsContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
       this.graphicsContext.restore();
-      if (this.drawCallback) {
-        this.drawCallback();
-      }
       return window.dispatchEvent(this.redrawEvent);
     };
 
-    CanvasRenderer.prototype.renderLoop = function() {
+    CanvasManager.prototype.renderLoop = function() {
       this.render();
       return this.requestFrame.call(window, this.renderLoop);
     };
 
-    return CanvasRenderer;
+    return CanvasManager;
 
   })();
 
   constructContext = function() {
-    var KEYBOARD_HEIGHT, KEY_WIDTH, adaptor, canvas, context, keyboard, keyboardDrawer, renderer;
+    var KEYBOARD_HEIGHT, KEY_WIDTH, canvas, context, keyboard, keyboardDrawer, manager;
 
-    KEYBOARD_HEIGHT = 30;
-    KEY_WIDTH = 10;
-    keyboard = new Keyboard(60 - (12 * 2), 60 + (12 * 2));
-    keyboardDrawer = new KeyboardDrawer(keyboard);
+    KEYBOARD_HEIGHT = 35;
+    KEY_WIDTH = 15;
+    keyboard = new Keyboard(60 - (12 * 3), 60 + (12 * 3));
     canvas = document.getElementById("canvas");
     this.state = new TuneTreeState();
-    adaptor = new CanvasKeyboardAdaptor(keyboardDrawer, KEY_WIDTH, KEYBOARD_HEIGHT);
-    renderer = new CanvasRenderer(canvas, context);
-    context = new TuneTreeContext(renderer, state, adaptor);
+    keyboardDrawer = new CanvasKeyboardDrawer(keyboard, KEY_WIDTH, KEYBOARD_HEIGHT);
+    manager = new CanvasManager(canvas, context);
+    context = new TuneTreeContext(manager, state, keyboardDrawer);
     return context;
   };
 

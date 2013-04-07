@@ -42,6 +42,7 @@ class Theory
   # diatonicDegree: Diatonic degree of scale (0 - 11)
   # diatonicRelative: Diatonic degree of scale relative to note, may be positive or negative.
   positionRelativeToPitch : (givenPitch, relativeTo) ->
+      # TODO: MEMOIZE!
       # We need to produce something with a valid absolute value when compared to relativeTo,
       # which it wouln't if it had a lower value.
       # This seems a really stupid way to do it, but it works.
@@ -89,24 +90,9 @@ class Theory
 # TODO singleton. Static methods?
 theory = new Theory
 
-# Observes a keyboard, draws on a drawing adaptor.
-class KeyboardDrawer
-  constructor : (@keyboard) ->
-    
-  # Draw on the adaptor.
-  draw : (adaptor) ->
-    adaptor.range(@keyboard.LOWEST_PITCH, @keyboard.HIGHEST_PITCH)
-
-    for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
-      adaptor.key(pitch)
-
-# An adaptor that draws the keyboard.
-class KeyboardAdaptor
-
-
-# A keyboard adaptor that draws on a canvas.
-class CanvasKeyboardAdaptor extends KeyboardAdaptor
-  constructor : (@keyboardDrawer, @WHITE_NOTE_WIDTH, height) -> 
+# A keyboard adaptor that draws a keyboard on a canvas.
+class CanvasKeyboardDrawer
+  constructor : (@keyboard, @WHITE_NOTE_WIDTH, height) -> 
     
     @WHITE_NOTE_HEIGHT = height
     @BLACK_NOTE_HEIGHT = height * 0.5
@@ -120,85 +106,72 @@ class CanvasKeyboardAdaptor extends KeyboardAdaptor
     @BLACK_NOTE_OFFSET_S = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
     @BLACK_NOTE_OFFSET_F = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
 
-  # Set the keyboard range.
-  range: (lowestPitch, highestPitch) ->
-    @lowestPitch = lowestPitch
-    @highestPitch = highestPitch
-
     # Offset in pixels of the keyboard.
     # Used to shift they keyboard left when lowest note isn't zero.
-    @keyboardOffset = -@keyOffset(lowestPitch)
-
+    @keyboardOffset = -@keyOffset(contextualDegree = theory.positionRelativeToPitch(@keyboard.LOWEST_PITCH, MIDDLE_C))
+    
   draw : (graphicsContext) ->
-    # Draw the keyboard. As the code is single-threaded, no need to create a context object,
-    # context represented as properties on `this`.
+    # Draw the keyboard.
 
-    # TODO This assumes that the context may change. Depending on how I clear the canvas, 
-    # we may have a persistent context object removing the need to store it each draw call.
-    # Make the context available (may be different for each call).
     @graphicsContext = graphicsContext
-    
-    # Ask to be drawn twice. First time draw the white notes, second. 
-    
-    # White colour keys.
-    @drawCallbackmode = 0
+
+    # Draw White notes.
+
     @graphicsContext.fillStyle = "rgba(240, 240, 240, 1)"
     @graphicsContext.strokeStyle = "rgba(10, 10, 10, 1)"
     @graphicsContext.lineWidth = 1
-    @keyboardDrawer.draw(this)
 
-    # Black colour keys.
-    @drawCallbackmode = 1
+    for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
+      contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
+      if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL
+        @drawKey(contextualDegree)
+
+    # Then draw black notes over them.
+
     @graphicsContext.fillStyle = "rgba(10, 10, 10, 1)"
     @graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)"
     @graphicsContext.lineWidth = 1
-    @keyboardDrawer.draw(this)
 
-    # Extras.
+    for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
+      contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
+      if contextualDegree.diatonicAccidental != ACCIDENTAL.NATURAL
+        @drawKey(contextualDegree)
 
     # Middle C marker.
-    if @lowestPitch <= 60 <= @highestPitch
-      middleCX = @keyOffset(60) + @keyboardOffset 
+
+    if @keyboard.LOWEST_PITCH <= 60 <= @keyboard.HIGHEST_PITCH
+      middleCX = @keyOffset(theory.positionRelativeToPitch(60, MIDDLE_C)) + @keyboardOffset 
       graphicsContext.fillStyle = "rgba(0,0,0,0.25)"
       graphicsContext.lineWidth = 1
-      graphicsContext.strokeStyle = "rgba(0,0,0,0,0.125)";
+      graphicsContext.strokeStyle = "rgba(0,0,0,0,0.125)"
 
-      graphicsContext.beginPath();
-      graphicsContext.arc(middleCX + @WHITE_NOTE_WIDTH / 2, @WHITE_NOTE_HEIGHT * 0.75, @MIDDLE_C_MARKER_RADIUS, 0, 2 * Math.PI, false);
-      graphicsContext.fill();
-      graphicsContext.stroke();
+      graphicsContext.beginPath()
+      graphicsContext.arc(middleCX + @WHITE_NOTE_WIDTH / 2, @WHITE_NOTE_HEIGHT * 0.75, @MIDDLE_C_MARKER_RADIUS, 0, 2 * Math.PI, false)
+      graphicsContext.fill()
+      graphicsContext.stroke()
 
   # Callback.
-  key : (pitch) -> 
-    # @graphicsContext set by draw()
+  drawKey : (contextualDegree) -> 
+    x = @keyOffset(contextualDegree) + @keyboardOffset 
+    if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL 
+      # White note.
+      @graphicsContext.fillRect(x, 0, @WHITE_NOTE_WIDTH, @WHITE_NOTE_HEIGHT)
+      @graphicsContext.strokeRect(x, 0, @WHITE_NOTE_WIDTH, @WHITE_NOTE_HEIGHT)
 
-    # TODO: contextualDegree is called by keyOffset(). Optimise?
-    contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
+    else if contextualDegree.diatonicAccidental == ACCIDENTAL.SHARP
+      # Black note, sharp.
+      @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+      @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
 
-    # Called twice. First time, drawCallbackmode == 0, draw white notes.
-    # Next time draw black notes, on top.
-    x = @keyOffset(pitch) + @keyboardOffset 
-    if @drawCallbackmode == 0 
-      if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL 
-        # White note.
-        @graphicsContext.fillRect(x, 0, @WHITE_NOTE_WIDTH, @WHITE_NOTE_HEIGHT)
-        @graphicsContext.strokeRect(x, 0, @WHITE_NOTE_WIDTH, @WHITE_NOTE_HEIGHT)
-    else
-      if contextualDegree.diatonicAccidental == ACCIDENTAL.SHARP
-        # Black note, sharp.
-        @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
-        @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
-
-      else if contextualDegree.diatonicAccidental == ACCIDENTAL.FLAT
-        # Black note, flat.
-        @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
-        @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+    else if contextualDegree.diatonicAccidental == ACCIDENTAL.FLAT
+      # Black note, flat.
+      @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+      @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
 
 
   # Calculate the offset of a key for a given pitch in absolute terms.
   # i.e. no keyboard offset. This is used to calculate the keyboard offset.
-  keyOffset : (pitch) =>
-    contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
+  keyOffset : (contextualDegree) =>
     octaveOffset = (contextualDegree.octave * 7  * @WHITE_NOTE_WIDTH)
     
     if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL 
@@ -215,27 +188,30 @@ class Keyboard
 
 # Overall context for tune tree.
 class TuneTreeContext
-  constructor: (@renderer, @state, @adaptor) ->
+  constructor: (@manager, @state, @drawer) ->
     window.addEventListener("redraw", @redraw)
 
   run: () -> 
     # Start the render loop in motion.
-    @renderer.renderLoop()
+
+    @manager.renderLoop()
 
   redraw : () =>
-    # TODO add stuff here. Maybe pass in something different to @adaptor.draw().
-    @adaptor.draw(@renderer.graphicsContext)
+    for dep in [0..@state.depth]
+      @drawer.draw(@manager.graphicsContext)
    
 
 # The current state of the tune tree.
 class TuneTreeState
   constructor : () ->
     @state = []
+    @depth = 5
 
-  maxDepth : () ->
-    10
+  # Depth of deepest node.
+  depth : () ->
+    @depth
 
-class CanvasRenderer
+class CanvasManager
   constructor: (@canvas) ->
     @redrawEvent = new CustomEvent("redraw")
 
@@ -247,30 +223,18 @@ class CanvasRenderer
       window.mozRequestAnimationFrame    ||
       () -> window.setTimeout(callback, 1000 / 60))()
 
-    
-
   canvasSize: () -> 
     @canvas.width = window.innerWidth
     @canvas.height = window.innerHeight
     @graphicsContext = @canvas.getContext("2d")
     window.addEventListener('resize', @canvasSize, false)
   
-
-  # A bit of dependency injection crud.
-  setDrawCallback : (@drawCallback) ->
-
   render: () -> 
     # Clear canvas prior to drawing.
-    # Unclear about efficiency of this vs width = width.
     @graphicsContext.save()
     @graphicsContext.setTransform(1, 0, 0, 1, 0, 0)
     @graphicsContext.clearRect(0, 0, @canvas.width, @canvas.height)
     @graphicsContext.restore()
-
-    #@canvas.width = @canvas.width
-    
-    if @drawCallback
-      @drawCallback()
 
     window.dispatchEvent(@redrawEvent)    
 
@@ -284,14 +248,11 @@ class CanvasRenderer
 
 
 constructContext = () ->
-  KEYBOARD_HEIGHT = 30
-  KEY_WIDTH = 10
+  KEYBOARD_HEIGHT = 35
+  KEY_WIDTH = 15
 
   # Keyboard content logic.
-  keyboard = new Keyboard(60 - (12*2), 60 + (12*2))
-
-  # For mediating between the keyboard and the canvas adaptor.
-  keyboardDrawer = new KeyboardDrawer(keyboard)
+  keyboard = new Keyboard(60 - (12*3), 60 + (12*3))
 
   # For drawing on!
   canvas = document.getElementById("canvas")
@@ -300,13 +261,13 @@ constructContext = () ->
   @state = new TuneTreeState()
 
   # For drawing!
-  adaptor = new CanvasKeyboardAdaptor(keyboardDrawer, KEY_WIDTH, KEYBOARD_HEIGHT)
+  keyboardDrawer = new CanvasKeyboardDrawer(keyboard, KEY_WIDTH, KEYBOARD_HEIGHT)
   
   # For keeping the canvas filled.
-  renderer = new CanvasRenderer(canvas, context)
+  manager = new CanvasManager(canvas, context)
 
   # To bind it all together.
-  context = new TuneTreeContext(renderer, state, adaptor)
+  context = new TuneTreeContext(manager, state, keyboardDrawer)
   
   context
 

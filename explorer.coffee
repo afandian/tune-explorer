@@ -95,25 +95,113 @@ class CanvasKeyboardDrawer
   constructor : (@keyboard, @WHITE_NOTE_WIDTH, height) -> 
     
     @WHITE_NOTE_HEIGHT = height
-    @BLACK_NOTE_HEIGHT = height * 0.5
+
+    # Black notes are extended for renderings other than the top keyboard.
+    @CANONICAL_BLACK_NOTE_HEIGHT = height * 0.5
+    @BLACK_NOTE_HEIGHT = @BLACK_NOTE_HEIGHT
 
     @BLACK_NOTE_WIDTH = @WHITE_NOTE_WIDTH / 2
+
+    @HOVER_FILL_STYLE = "rgba(200, 10, 10, 1)"
 
     # Marker for Middle X
     @MIDDLE_C_MARKER_RADIUS = @WHITE_NOTE_WIDTH / 4
 
-    # Black note offset from corresponding white note, sharp and flat.
-    @BLACK_NOTE_OFFSET_S = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
-    @BLACK_NOTE_OFFSET_F = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
+    # Black note offset from corresponding white note
+    @BLACK_NOTE_OFFSET = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
 
     # Offset in pixels of the keyboard.
     # Used to shift they keyboard left when lowest note isn't zero.
     @keyboardOffset = -@keyOffset(contextualDegree = theory.positionRelativeToPitch(@keyboard.LOWEST_PITCH, MIDDLE_C))
   
-  # set draw style. 1 - headline, 2, auxiliary repeating ones.
+    @calculateMouseRanges()
+
+  # Calculate the ranges that can be used to work out what the mouse is pointing at.
+  calculateMouseRanges : () ->
+    # Two sets of ranges, one for the top half of the keyboard where the black and white notes reside,
+    # one for the bottom half with just white notes.
+    # Depending on the style of keyboard (style 1 or 2), one or both of these will be applicable.
+
+    # These are flat arrays of triplets [«x lower bound», «x upper bound», «pitch»,].
+    # As this is used to track mouse movement, this is a good optimisation!
+
+    # Ranges for the black/white range.
+    @mixedMouseRanges = []
+
+    # Ranges for the white range.
+    @whiteMouseRanges = []
+
+    # White only notes first.
+    contextualDegree = theory.positionRelativeToPitch(@keyboard.LOWEST_PITCH, MIDDLE_C)
+    lowerX = @keyOffset(contextualDegree) + @keyboardOffset
+    lastPitch = @keyboard.LOWEST_PITCH
+    for pitch in [@keyboard.LOWEST_PITCH+1..@keyboard.HIGHEST_PITCH+2]
+      contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
+
+      if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL
+        upperX = @keyOffset(contextualDegree) + @keyboardOffset      
+
+        # Some padding between them.
+        @whiteMouseRanges.push(lowerX)
+        @whiteMouseRanges.push(upperX)
+        @whiteMouseRanges.push(lastPitch)
+
+        lowerX = upperX
+        lastPitch = pitch
+
+    # Now both. A little inefficient, but only happens once.
+    for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
+      contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
+      nextContextualDegree = theory.positionRelativeToPitch(pitch+1, MIDDLE_C)
+      prevContextualDegree = theory.positionRelativeToPitch(pitch-1, MIDDLE_C)
+
+      black = contextualDegree.diatonicAccidental != ACCIDENTAL.NATURAL
+      nextBlack = nextContextualDegree.diatonicAccidental != ACCIDENTAL.NATURAL
+      prevBlack = prevContextualDegree.diatonicAccidental != ACCIDENTAL.NATURAL
+
+      lowerX = @keyOffset(contextualDegree) + @keyboardOffset
+      
+      upperX = lowerX + if black
+         @BLACK_NOTE_WIDTH
+      else
+        @WHITE_NOTE_WIDTH
+  
+      if prevBlack
+        lowerX += @BLACK_NOTE_WIDTH / 2
+
+      if nextBlack
+        upperX -= @BLACK_NOTE_WIDTH / 2
+
+      @mixedMouseRanges.push(lowerX)
+      @mixedMouseRanges.push(upperX)
+      @mixedMouseRanges.push(pitch)
+
+  mousePitchForXY : (x, y) ->
+    # COUPLING: We're giving the keyboard knowledge of how we're layout out our keys (i.e. first one full)
+    # so that it can decide whether to use the mixed or white-only mouse ranges. A bit ugly.
+
+    row = Math.floor(y / @WHITE_NOTE_HEIGHT)
+
+    # Just doing a linear search of the coordinate intervals, it's only a small number.
+    # TODO binary search, but would probably be less efficient.
+    
+    # if the mouse is in the first keyboard and in the white part of the keyboard
+    if row == 0 and y > @CANONICAL_BLACK_NOTE_HEIGHT
+      for i in [0...@whiteMouseRanges.length/3]
+        if @whiteMouseRanges[i*3] <= x <= @whiteMouseRanges[i*3+1]
+          return [@whiteMouseRanges[i*3+2], row]
+    else
+      # Otherwise in the rest of the keyboard or the mixed portion of the top keyboard.
+      for i in [0...@mixedMouseRanges.length/3]
+        if @mixedMouseRanges[i*3] <= x <= @mixedMouseRanges[i*3+1]
+          return [@mixedMouseRanges[i*3+2], row]
+
+    null
+
+  # set draw style. 0 - headline full, 1, auxiliary repeating ones.
   setDrawStyle : (@mode) ->
     if @mode == 0
-      @BLACK_NOTE_HEIGHT = @WHITE_NOTE_HEIGHT * 0.5
+      @BLACK_NOTE_HEIGHT = @CANONICAL_BLACK_NOTE_HEIGHT
       @WHITE_NOTE_FILL_STYLE = "rgba(240, 240, 240, 1)"
       @WHITE_NOTE_STROKE_STYLE = "rgba(10, 10, 10, 1)"
 
@@ -129,9 +217,10 @@ class CanvasKeyboardDrawer
       @BLACK_NOTE_STROKE_STYLE = "rgba(100, 100, 100, 1)"
 
 
-  draw : (graphicsContext, vNumber) ->
+  draw : (graphicsContext, vNumber, hoverPitch) ->
     # Draw the keyboard.
     # vertical number, for drawing vertically stacked keyboards.
+    # if hoverPitch is not null, select that pitch.
 
     # Vertical keyboard number.
     vNumber |= 0
@@ -142,7 +231,6 @@ class CanvasKeyboardDrawer
     @graphicsContext.translate(0, vNumber * @WHITE_NOTE_HEIGHT)
 
     # Draw White notes.
-
     @graphicsContext.fillStyle = @WHITE_NOTE_FILL_STYLE
     @graphicsContext.strokeStyle = @WHITE_NOTE_STROKE_STYLE
     @graphicsContext.lineWidth = 1
@@ -150,7 +238,13 @@ class CanvasKeyboardDrawer
     for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
       contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
       if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL
+        if hoverPitch == pitch
+          @graphicsContext.fillStyle = @HOVER_FILL_STYLE
+
         @drawKey(contextualDegree)
+  
+        if hoverPitch == pitch
+          @graphicsContext.fillStyle = @WHITE_NOTE_FILL_STYLE
 
     # Then draw black notes over them.
 
@@ -161,7 +255,13 @@ class CanvasKeyboardDrawer
     for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
       contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
       if contextualDegree.diatonicAccidental != ACCIDENTAL.NATURAL
+        if hoverPitch == pitch
+          @graphicsContext.fillStyle = @HOVER_FILL_STYLE  
+          
         @drawKey(contextualDegree)
+
+        if hoverPitch == pitch
+          @graphicsContext.fillStyle = @BLACK_NOTE_FILL_STYLE
 
     # Middle C marker.
 
@@ -188,13 +288,13 @@ class CanvasKeyboardDrawer
 
     else if contextualDegree.diatonicAccidental == ACCIDENTAL.SHARP
       # Black note, sharp.
-      @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
-      @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_S, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+      @graphicsContext.fillRect(x, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+      @graphicsContext.strokeRect(x, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
 
     else if contextualDegree.diatonicAccidental == ACCIDENTAL.FLAT
       # Black note, flat.
-      @graphicsContext.fillRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
-      @graphicsContext.strokeRect(x + @BLACK_NOTE_OFFSET_F, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+      @graphicsContext.fillRect(x, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
+      @graphicsContext.strokeRect(x, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
 
 
   # Calculate the offset of a key for a given pitch in absolute terms.
@@ -205,9 +305,9 @@ class CanvasKeyboardDrawer
     if contextualDegree.diatonicAccidental == ACCIDENTAL.NATURAL 
       octaveOffset + contextualDegree.diatonicDegree * @WHITE_NOTE_WIDTH
     else if contextualDegree.diatonicAccidental == ACCIDENTAL.SHARP
-      octaveOffset + contextualDegree.diatonicDegree * @WHITE_NOTE_WIDTH
+      octaveOffset + @BLACK_NOTE_OFFSET + contextualDegree.diatonicDegree * @WHITE_NOTE_WIDTH
     else if contextualDegree.diatonicAccidental == ACCIDENTAL.FLAT 
-      octaveOffset + (contextualDegree.diatonicDegree - 1) * @WHITE_NOTE_WIDTH
+      octaveOffset + @BLACK_NOTE_OFFSET + (contextualDegree.diatonicDegree - 1) * @WHITE_NOTE_WIDTH
 
 
 # A keyboard
@@ -216,8 +316,9 @@ class Keyboard
 
 # Overall context for tune tree.
 class TuneTreeContext
-  constructor: (@manager, @state, @drawer) ->
+  constructor: (@manager, @state, @drawer, @interactionState) ->
     window.addEventListener("redraw", @redraw)
+    window.addEventListener("mousemove", @mousemove)
 
   run: () -> 
     # Start the render loop in motion.
@@ -225,20 +326,43 @@ class TuneTreeContext
     @manager.renderLoop()
 
   redraw : () =>
+    hoverPitch = if 0 == @interactionState.hoverRow
+        @interactionState.hoverPitch
+      else
+        null
+
     # Draw top row with style 0.
     @drawer.setDrawStyle(0)
-    @drawer.draw(@manager.graphicsContext, 0)
+    @drawer.draw(@manager.graphicsContext, 0, hoverPitch)
     
     # Draw the rest with style 1.
     @drawer.setDrawStyle(1)  
-    for dep in [1...@state.depth]
-      @drawer.draw(@manager.graphicsContext, dep)
+    for row in [1...@state.depth]
+      hoverPitch = if row == @interactionState.hoverRow
+        @interactionState.hoverPitch
+      else
+        null
+      
+      @drawer.draw(@manager.graphicsContext, row, hoverPitch)
+
+  mousemove : (event) =>
+    @interactionState.mouseX = event.x
+    @interactionState.mouseY = event.y
+    pitchRow = @drawer.mousePitchForXY(event.x, event.y)
+    if pitchRow != null
+      [@interactionState.hoverPitch, @interactionState.hoverRow] = pitchRow
    
+class InteractionState
+  constructor : () ->
+    @mouseX = 0
+    @mouseY = 0
+    @selectedPitch = null
+
 # The current state of the tune tree.
 class TuneTreeState
   constructor : () ->
     @state = []
-    @depth = 20
+    @depth = 5
 
   # Depth of deepest node.
   depth : () ->
@@ -276,10 +400,6 @@ class CanvasManager
     @requestFrame.call(window, @renderLoop)
 
 
-
-
-
-
 constructContext = () ->
   KEYBOARD_HEIGHT = 35
   KEY_WIDTH = 15
@@ -299,8 +419,11 @@ constructContext = () ->
   # For keeping the canvas filled.
   manager = new CanvasManager(canvas, context)
 
+  # For keeping track of what the user is up to.
+  interactionState = new InteractionState()
+
   # To bind it all together.
-  context = new TuneTreeContext(manager, state, keyboardDrawer)
+  context = new TuneTreeContext(manager, state, keyboardDrawer, interactionState)
   
   context
 

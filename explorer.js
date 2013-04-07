@@ -10,7 +10,7 @@ joe@afandian.com
 
 
 (function() {
-  var ACCIDENTAL, CanvasKeyboardDrawer, CanvasManager, Keyboard, MIDDLE_C, Theory, TuneTreeContext, TuneTreeState, constructContext, context, theory,
+  var ACCIDENTAL, CanvasKeyboardDrawer, CanvasManager, InteractionState, Keyboard, MIDDLE_C, Theory, TuneTreeContext, TuneTreeState, constructContext, context, theory,
     __bind = function(fn, me){ return function(){ return fn.apply(me, arguments); }; };
 
   ACCIDENTAL = {
@@ -161,18 +161,82 @@ joe@afandian.com
       this.WHITE_NOTE_WIDTH = WHITE_NOTE_WIDTH;
       this.keyOffset = __bind(this.keyOffset, this);
       this.WHITE_NOTE_HEIGHT = height;
-      this.BLACK_NOTE_HEIGHT = height * 0.5;
+      this.CANONICAL_BLACK_NOTE_HEIGHT = height * 0.5;
+      this.BLACK_NOTE_HEIGHT = this.BLACK_NOTE_HEIGHT;
       this.BLACK_NOTE_WIDTH = this.WHITE_NOTE_WIDTH / 2;
+      this.HOVER_FILL_STYLE = "rgba(200, 10, 10, 1)";
       this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 4;
-      this.BLACK_NOTE_OFFSET_S = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
-      this.BLACK_NOTE_OFFSET_F = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
+      this.BLACK_NOTE_OFFSET = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
       this.keyboardOffset = -this.keyOffset(contextualDegree = theory.positionRelativeToPitch(this.keyboard.LOWEST_PITCH, MIDDLE_C));
+      this.calculateMouseRanges();
     }
+
+    CanvasKeyboardDrawer.prototype.calculateMouseRanges = function() {
+      var black, contextualDegree, lastPitch, lowerX, nextBlack, nextContextualDegree, pitch, prevBlack, prevContextualDegree, upperX, _i, _j, _ref, _ref1, _ref2, _ref3, _results;
+
+      this.mixedMouseRanges = [];
+      this.whiteMouseRanges = [];
+      contextualDegree = theory.positionRelativeToPitch(this.keyboard.LOWEST_PITCH, MIDDLE_C);
+      lowerX = this.keyOffset(contextualDegree) + this.keyboardOffset;
+      lastPitch = this.keyboard.LOWEST_PITCH;
+      for (pitch = _i = _ref = this.keyboard.LOWEST_PITCH + 1, _ref1 = this.keyboard.HIGHEST_PITCH + 2; _ref <= _ref1 ? _i <= _ref1 : _i >= _ref1; pitch = _ref <= _ref1 ? ++_i : --_i) {
+        contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
+        if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
+          upperX = this.keyOffset(contextualDegree) + this.keyboardOffset;
+          this.whiteMouseRanges.push(lowerX);
+          this.whiteMouseRanges.push(upperX);
+          this.whiteMouseRanges.push(lastPitch);
+          lowerX = upperX;
+          lastPitch = pitch;
+        }
+      }
+      _results = [];
+      for (pitch = _j = _ref2 = this.keyboard.LOWEST_PITCH, _ref3 = this.keyboard.HIGHEST_PITCH; _ref2 <= _ref3 ? _j <= _ref3 : _j >= _ref3; pitch = _ref2 <= _ref3 ? ++_j : --_j) {
+        contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
+        nextContextualDegree = theory.positionRelativeToPitch(pitch + 1, MIDDLE_C);
+        prevContextualDegree = theory.positionRelativeToPitch(pitch - 1, MIDDLE_C);
+        black = contextualDegree.diatonicAccidental !== ACCIDENTAL.NATURAL;
+        nextBlack = nextContextualDegree.diatonicAccidental !== ACCIDENTAL.NATURAL;
+        prevBlack = prevContextualDegree.diatonicAccidental !== ACCIDENTAL.NATURAL;
+        lowerX = this.keyOffset(contextualDegree) + this.keyboardOffset;
+        upperX = lowerX + (black ? this.BLACK_NOTE_WIDTH : this.WHITE_NOTE_WIDTH);
+        if (prevBlack) {
+          lowerX += this.BLACK_NOTE_WIDTH / 2;
+        }
+        if (nextBlack) {
+          upperX -= this.BLACK_NOTE_WIDTH / 2;
+        }
+        this.mixedMouseRanges.push(lowerX);
+        this.mixedMouseRanges.push(upperX);
+        _results.push(this.mixedMouseRanges.push(pitch));
+      }
+      return _results;
+    };
+
+    CanvasKeyboardDrawer.prototype.mousePitchForXY = function(x, y) {
+      var i, row, _i, _j, _ref, _ref1;
+
+      row = Math.floor(y / this.WHITE_NOTE_HEIGHT);
+      if (row === 0 && y > this.CANONICAL_BLACK_NOTE_HEIGHT) {
+        for (i = _i = 0, _ref = this.whiteMouseRanges.length / 3; 0 <= _ref ? _i < _ref : _i > _ref; i = 0 <= _ref ? ++_i : --_i) {
+          if ((this.whiteMouseRanges[i * 3] <= x && x <= this.whiteMouseRanges[i * 3 + 1])) {
+            return [this.whiteMouseRanges[i * 3 + 2], row];
+          }
+        }
+      } else {
+        for (i = _j = 0, _ref1 = this.mixedMouseRanges.length / 3; 0 <= _ref1 ? _j < _ref1 : _j > _ref1; i = 0 <= _ref1 ? ++_j : --_j) {
+          if ((this.mixedMouseRanges[i * 3] <= x && x <= this.mixedMouseRanges[i * 3 + 1])) {
+            return [this.mixedMouseRanges[i * 3 + 2], row];
+          }
+        }
+      }
+      return null;
+    };
 
     CanvasKeyboardDrawer.prototype.setDrawStyle = function(mode) {
       this.mode = mode;
       if (this.mode === 0) {
-        this.BLACK_NOTE_HEIGHT = this.WHITE_NOTE_HEIGHT * 0.5;
+        this.BLACK_NOTE_HEIGHT = this.CANONICAL_BLACK_NOTE_HEIGHT;
         this.WHITE_NOTE_FILL_STYLE = "rgba(240, 240, 240, 1)";
         this.WHITE_NOTE_STROKE_STYLE = "rgba(10, 10, 10, 1)";
         this.BLACK_NOTE_FILL_STYLE = "rgba(10, 10, 10, 1)";
@@ -186,7 +250,7 @@ joe@afandian.com
       }
     };
 
-    CanvasKeyboardDrawer.prototype.draw = function(graphicsContext, vNumber) {
+    CanvasKeyboardDrawer.prototype.draw = function(graphicsContext, vNumber, hoverPitch) {
       var contextualDegree, middleCX, pitch, _i, _j, _ref, _ref1, _ref2, _ref3;
 
       vNumber |= 0;
@@ -199,7 +263,13 @@ joe@afandian.com
       for (pitch = _i = _ref = this.keyboard.LOWEST_PITCH, _ref1 = this.keyboard.HIGHEST_PITCH; _ref <= _ref1 ? _i <= _ref1 : _i >= _ref1; pitch = _ref <= _ref1 ? ++_i : --_i) {
         contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
         if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
+          if (hoverPitch === pitch) {
+            this.graphicsContext.fillStyle = this.HOVER_FILL_STYLE;
+          }
           this.drawKey(contextualDegree);
+          if (hoverPitch === pitch) {
+            this.graphicsContext.fillStyle = this.WHITE_NOTE_FILL_STYLE;
+          }
         }
       }
       this.graphicsContext.fillStyle = this.BLACK_NOTE_FILL_STYLE;
@@ -208,7 +278,13 @@ joe@afandian.com
       for (pitch = _j = _ref2 = this.keyboard.LOWEST_PITCH, _ref3 = this.keyboard.HIGHEST_PITCH; _ref2 <= _ref3 ? _j <= _ref3 : _j >= _ref3; pitch = _ref2 <= _ref3 ? ++_j : --_j) {
         contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
         if (contextualDegree.diatonicAccidental !== ACCIDENTAL.NATURAL) {
+          if (hoverPitch === pitch) {
+            this.graphicsContext.fillStyle = this.HOVER_FILL_STYLE;
+          }
           this.drawKey(contextualDegree);
+          if (hoverPitch === pitch) {
+            this.graphicsContext.fillStyle = this.BLACK_NOTE_FILL_STYLE;
+          }
         }
       }
       if ((this.keyboard.LOWEST_PITCH <= 60 && 60 <= this.keyboard.HIGHEST_PITCH)) {
@@ -232,11 +308,11 @@ joe@afandian.com
         this.graphicsContext.fillRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
         return this.graphicsContext.strokeRect(x, 0, this.WHITE_NOTE_WIDTH, this.WHITE_NOTE_HEIGHT);
       } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.SHARP) {
-        this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
-        return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_S, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        this.graphicsContext.fillRect(x, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        return this.graphicsContext.strokeRect(x, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
       } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.FLAT) {
-        this.graphicsContext.fillRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
-        return this.graphicsContext.strokeRect(x + this.BLACK_NOTE_OFFSET_F, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        this.graphicsContext.fillRect(x, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
+        return this.graphicsContext.strokeRect(x, 0, this.BLACK_NOTE_WIDTH, this.BLACK_NOTE_HEIGHT);
       }
     };
 
@@ -247,9 +323,9 @@ joe@afandian.com
       if (contextualDegree.diatonicAccidental === ACCIDENTAL.NATURAL) {
         return octaveOffset + contextualDegree.diatonicDegree * this.WHITE_NOTE_WIDTH;
       } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.SHARP) {
-        return octaveOffset + contextualDegree.diatonicDegree * this.WHITE_NOTE_WIDTH;
+        return octaveOffset + this.BLACK_NOTE_OFFSET + contextualDegree.diatonicDegree * this.WHITE_NOTE_WIDTH;
       } else if (contextualDegree.diatonicAccidental === ACCIDENTAL.FLAT) {
-        return octaveOffset + (contextualDegree.diatonicDegree - 1) * this.WHITE_NOTE_WIDTH;
+        return octaveOffset + this.BLACK_NOTE_OFFSET + (contextualDegree.diatonicDegree - 1) * this.WHITE_NOTE_WIDTH;
       }
     };
 
@@ -268,12 +344,15 @@ joe@afandian.com
   })();
 
   TuneTreeContext = (function() {
-    function TuneTreeContext(manager, state, drawer) {
+    function TuneTreeContext(manager, state, drawer, interactionState) {
       this.manager = manager;
       this.state = state;
       this.drawer = drawer;
+      this.interactionState = interactionState;
+      this.mousemove = __bind(this.mousemove, this);
       this.redraw = __bind(this.redraw, this);
       window.addEventListener("redraw", this.redraw);
+      window.addEventListener("mousemove", this.mousemove);
     }
 
     TuneTreeContext.prototype.run = function() {
@@ -281,26 +360,50 @@ joe@afandian.com
     };
 
     TuneTreeContext.prototype.redraw = function() {
-      var dep, _i, _ref, _results;
+      var hoverPitch, row, _i, _ref, _results;
 
+      hoverPitch = 0 === this.interactionState.hoverRow ? this.interactionState.hoverPitch : null;
       this.drawer.setDrawStyle(0);
-      this.drawer.draw(this.manager.graphicsContext, 0);
+      this.drawer.draw(this.manager.graphicsContext, 0, hoverPitch);
       this.drawer.setDrawStyle(1);
       _results = [];
-      for (dep = _i = 1, _ref = this.state.depth; 1 <= _ref ? _i < _ref : _i > _ref; dep = 1 <= _ref ? ++_i : --_i) {
-        _results.push(this.drawer.draw(this.manager.graphicsContext, dep));
+      for (row = _i = 1, _ref = this.state.depth; 1 <= _ref ? _i < _ref : _i > _ref; row = 1 <= _ref ? ++_i : --_i) {
+        hoverPitch = row === this.interactionState.hoverRow ? this.interactionState.hoverPitch : null;
+        _results.push(this.drawer.draw(this.manager.graphicsContext, row, hoverPitch));
       }
       return _results;
+    };
+
+    TuneTreeContext.prototype.mousemove = function(event) {
+      var pitchRow;
+
+      this.interactionState.mouseX = event.x;
+      this.interactionState.mouseY = event.y;
+      pitchRow = this.drawer.mousePitchForXY(event.x, event.y);
+      if (pitchRow !== null) {
+        return this.interactionState.hoverPitch = pitchRow[0], this.interactionState.hoverRow = pitchRow[1], pitchRow;
+      }
     };
 
     return TuneTreeContext;
 
   })();
 
+  InteractionState = (function() {
+    function InteractionState() {
+      this.mouseX = 0;
+      this.mouseY = 0;
+      this.selectedPitch = null;
+    }
+
+    return InteractionState;
+
+  })();
+
   TuneTreeState = (function() {
     function TuneTreeState() {
       this.state = [];
-      this.depth = 20;
+      this.depth = 5;
     }
 
     TuneTreeState.prototype.depth = function() {
@@ -349,7 +452,7 @@ joe@afandian.com
   })();
 
   constructContext = function() {
-    var KEYBOARD_HEIGHT, KEY_WIDTH, canvas, context, keyboard, keyboardDrawer, manager;
+    var KEYBOARD_HEIGHT, KEY_WIDTH, canvas, context, interactionState, keyboard, keyboardDrawer, manager;
 
     KEYBOARD_HEIGHT = 35;
     KEY_WIDTH = 15;
@@ -358,7 +461,8 @@ joe@afandian.com
     this.state = new TuneTreeState();
     keyboardDrawer = new CanvasKeyboardDrawer(keyboard, KEY_WIDTH, KEYBOARD_HEIGHT);
     manager = new CanvasManager(canvas, context);
-    context = new TuneTreeContext(manager, state, keyboardDrawer);
+    interactionState = new InteractionState();
+    context = new TuneTreeContext(manager, state, keyboardDrawer, interactionState);
     return context;
   };
 

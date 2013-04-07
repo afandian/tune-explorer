@@ -169,12 +169,32 @@ joe@afandian.com
       this.keyboardOffset = -this.keyOffset(contextualDegree = theory.positionRelativeToPitch(this.keyboard.LOWEST_PITCH, MIDDLE_C));
     }
 
-    CanvasKeyboardDrawer.prototype.draw = function(graphicsContext) {
+    CanvasKeyboardDrawer.prototype.setDrawStyle = function(mode) {
+      this.mode = mode;
+      if (this.mode === 0) {
+        this.BLACK_NOTE_HEIGHT = this.WHITE_NOTE_HEIGHT * 0.5;
+        this.WHITE_NOTE_FILL_STYLE = "rgba(240, 240, 240, 1)";
+        this.WHITE_NOTE_STROKE_STYLE = "rgba(10, 10, 10, 1)";
+        this.BLACK_NOTE_FILL_STYLE = "rgba(10, 10, 10, 1)";
+        return this.BLACK_NOTE_STROKE_STYLE = "rgba(40, 40, 40, 1)";
+      } else {
+        this.BLACK_NOTE_HEIGHT = this.WHITE_NOTE_HEIGHT;
+        this.WHITE_NOTE_FILL_STYLE = "rgba(240, 240, 240, 1)";
+        this.WHITE_NOTE_STROKE_STYLE = "rgba(10, 10, 10, 0.4)";
+        this.BLACK_NOTE_FILL_STYLE = "rgba(100, 100, 100, 1)";
+        return this.BLACK_NOTE_STROKE_STYLE = "rgba(100, 100, 100, 1)";
+      }
+    };
+
+    CanvasKeyboardDrawer.prototype.draw = function(graphicsContext, vNumber) {
       var contextualDegree, middleCX, pitch, _i, _j, _ref, _ref1, _ref2, _ref3;
 
+      vNumber |= 0;
       this.graphicsContext = graphicsContext;
-      this.graphicsContext.fillStyle = "rgba(240, 240, 240, 1)";
-      this.graphicsContext.strokeStyle = "rgba(10, 10, 10, 1)";
+      this.graphicsContext.save();
+      this.graphicsContext.translate(0, vNumber * this.WHITE_NOTE_HEIGHT);
+      this.graphicsContext.fillStyle = this.WHITE_NOTE_FILL_STYLE;
+      this.graphicsContext.strokeStyle = this.WHITE_NOTE_STROKE_STYLE;
       this.graphicsContext.lineWidth = 1;
       for (pitch = _i = _ref = this.keyboard.LOWEST_PITCH, _ref1 = this.keyboard.HIGHEST_PITCH; _ref <= _ref1 ? _i <= _ref1 : _i >= _ref1; pitch = _ref <= _ref1 ? ++_i : --_i) {
         contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
@@ -182,8 +202,8 @@ joe@afandian.com
           this.drawKey(contextualDegree);
         }
       }
-      this.graphicsContext.fillStyle = "rgba(10, 10, 10, 1)";
-      this.graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)";
+      this.graphicsContext.fillStyle = this.BLACK_NOTE_FILL_STYLE;
+      this.graphicsContext.strokeStyle = this.BLACK_NOTE_LINE_STYLE;
       this.graphicsContext.lineWidth = 1;
       for (pitch = _j = _ref2 = this.keyboard.LOWEST_PITCH, _ref3 = this.keyboard.HIGHEST_PITCH; _ref2 <= _ref3 ? _j <= _ref3 : _j >= _ref3; pitch = _ref2 <= _ref3 ? ++_j : --_j) {
         contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
@@ -199,8 +219,9 @@ joe@afandian.com
         graphicsContext.beginPath();
         graphicsContext.arc(middleCX + this.WHITE_NOTE_WIDTH / 2, this.WHITE_NOTE_HEIGHT * 0.75, this.MIDDLE_C_MARKER_RADIUS, 0, 2 * Math.PI, false);
         graphicsContext.fill();
-        return graphicsContext.stroke();
+        graphicsContext.stroke();
       }
+      return this.graphicsContext.restore();
     };
 
     CanvasKeyboardDrawer.prototype.drawKey = function(contextualDegree) {
@@ -262,9 +283,12 @@ joe@afandian.com
     TuneTreeContext.prototype.redraw = function() {
       var dep, _i, _ref, _results;
 
+      this.drawer.setDrawStyle(0);
+      this.drawer.draw(this.manager.graphicsContext, 0);
+      this.drawer.setDrawStyle(1);
       _results = [];
-      for (dep = _i = 0, _ref = this.state.depth; 0 <= _ref ? _i <= _ref : _i >= _ref; dep = 0 <= _ref ? ++_i : --_i) {
-        _results.push(this.drawer.draw(this.manager.graphicsContext));
+      for (dep = _i = 1, _ref = this.state.depth; 1 <= _ref ? _i < _ref : _i > _ref; dep = 1 <= _ref ? ++_i : --_i) {
+        _results.push(this.drawer.draw(this.manager.graphicsContext, dep));
       }
       return _results;
     };
@@ -276,7 +300,7 @@ joe@afandian.com
   TuneTreeState = (function() {
     function TuneTreeState() {
       this.state = [];
-      this.depth = 5;
+      this.depth = 20;
     }
 
     TuneTreeState.prototype.depth = function() {

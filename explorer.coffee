@@ -109,16 +109,42 @@ class CanvasKeyboardDrawer
     # Offset in pixels of the keyboard.
     # Used to shift they keyboard left when lowest note isn't zero.
     @keyboardOffset = -@keyOffset(contextualDegree = theory.positionRelativeToPitch(@keyboard.LOWEST_PITCH, MIDDLE_C))
-    
-  draw : (graphicsContext) ->
+  
+  # set draw style. 1 - headline, 2, auxiliary repeating ones.
+  setDrawStyle : (@mode) ->
+    if @mode == 0
+      @BLACK_NOTE_HEIGHT = @WHITE_NOTE_HEIGHT * 0.5
+      @WHITE_NOTE_FILL_STYLE = "rgba(240, 240, 240, 1)"
+      @WHITE_NOTE_STROKE_STYLE = "rgba(10, 10, 10, 1)"
+
+      @BLACK_NOTE_FILL_STYLE = "rgba(10, 10, 10, 1)"
+      @BLACK_NOTE_STROKE_STYLE = "rgba(40, 40, 40, 1)"
+    else
+      @BLACK_NOTE_HEIGHT = @WHITE_NOTE_HEIGHT
+
+      @WHITE_NOTE_FILL_STYLE = "rgba(240, 240, 240, 1)"
+      @WHITE_NOTE_STROKE_STYLE = "rgba(10, 10, 10, 0.4)"
+
+      @BLACK_NOTE_FILL_STYLE = "rgba(100, 100, 100, 1)"
+      @BLACK_NOTE_STROKE_STYLE = "rgba(100, 100, 100, 1)"
+
+
+  draw : (graphicsContext, vNumber) ->
     # Draw the keyboard.
+    # vertical number, for drawing vertically stacked keyboards.
+
+    # Vertical keyboard number.
+    vNumber |= 0
 
     @graphicsContext = graphicsContext
 
+    @graphicsContext.save()
+    @graphicsContext.translate(0, vNumber * @WHITE_NOTE_HEIGHT)
+
     # Draw White notes.
 
-    @graphicsContext.fillStyle = "rgba(240, 240, 240, 1)"
-    @graphicsContext.strokeStyle = "rgba(10, 10, 10, 1)"
+    @graphicsContext.fillStyle = @WHITE_NOTE_FILL_STYLE
+    @graphicsContext.strokeStyle = @WHITE_NOTE_STROKE_STYLE
     @graphicsContext.lineWidth = 1
 
     for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
@@ -128,8 +154,8 @@ class CanvasKeyboardDrawer
 
     # Then draw black notes over them.
 
-    @graphicsContext.fillStyle = "rgba(10, 10, 10, 1)"
-    @graphicsContext.strokeStyle = "rgba(40, 40, 40, 1)"
+    @graphicsContext.fillStyle = @BLACK_NOTE_FILL_STYLE
+    @graphicsContext.strokeStyle = @BLACK_NOTE_LINE_STYLE
     @graphicsContext.lineWidth = 1
 
     for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
@@ -149,6 +175,8 @@ class CanvasKeyboardDrawer
       graphicsContext.arc(middleCX + @WHITE_NOTE_WIDTH / 2, @WHITE_NOTE_HEIGHT * 0.75, @MIDDLE_C_MARKER_RADIUS, 0, 2 * Math.PI, false)
       graphicsContext.fill()
       graphicsContext.stroke()
+
+    @graphicsContext.restore()
 
   # Callback.
   drawKey : (contextualDegree) -> 
@@ -197,15 +225,20 @@ class TuneTreeContext
     @manager.renderLoop()
 
   redraw : () =>
-    for dep in [0..@state.depth]
-      @drawer.draw(@manager.graphicsContext)
+    # Draw top row with style 0.
+    @drawer.setDrawStyle(0)
+    @drawer.draw(@manager.graphicsContext, 0)
+    
+    # Draw the rest with style 1.
+    @drawer.setDrawStyle(1)  
+    for dep in [1...@state.depth]
+      @drawer.draw(@manager.graphicsContext, dep)
    
-
 # The current state of the tune tree.
 class TuneTreeState
   constructor : () ->
     @state = []
-    @depth = 5
+    @depth = 20
 
   # Depth of deepest node.
   depth : () ->

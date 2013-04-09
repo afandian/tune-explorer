@@ -449,9 +449,12 @@ class TuneTreeState
 
   # Select the given pitch at the given depth.
   select : (pitch, row) ->
+      change = false
+
       # If we're at the end, expand the path (if we're allowed).
       if row == @depth() && row < @MAX_DEPTH
           @path.push(pitch)
+          change = true
 
       # If we're mid-way throught the path,
       else if row < @depth()
@@ -459,15 +462,21 @@ class TuneTreeState
 
           # Trim the rest because it's invalid.
           @path = @path[0..row]
+          change = true
 
       # else we break the invariants, do nothing.
 
+      if change
+        jQuery("body").trigger("searchPathChanged", [@path])
 
 class CanvasManager
-  constructor: (@canvas) ->
+  constructor: (@canvas, @fillScreen) ->
     @redrawEvent = new CustomEvent("redraw")
+    @graphicsContext = @canvas.getContext("2d")
 
-    @canvasSize()
+    if @fillScreen
+      window.addEventListener('resize', @canvasResize, false)
+      @canvasResize()
 
     @requestFrame = (() ->
       return window.requestAnimationFrame       ||
@@ -475,11 +484,9 @@ class CanvasManager
       window.mozRequestAnimationFrame    ||
       () -> window.setTimeout(callback, 1000 / 60))()
 
-  canvasSize: () ->
+  canvasResize: () ->
     @canvas.width = window.innerWidth
     @canvas.height = window.innerHeight
-    @graphicsContext = @canvas.getContext("2d")
-    window.addEventListener('resize', @canvasSize, false)
 
   render: () ->
     # Clear canvas prior to drawing.

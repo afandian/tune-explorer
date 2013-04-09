@@ -469,11 +469,18 @@ joe@afandian.com
     };
 
     TuneTreeState.prototype.select = function(pitch, row) {
+      var change;
+      change = false;
       if (row === this.depth() && row < this.MAX_DEPTH) {
-        return this.path.push(pitch);
+        this.path.push(pitch);
+        change = true;
       } else if (row < this.depth()) {
         this.path[row] = pitch;
-        return this.path = this.path.slice(0, +row + 1 || 9e9);
+        this.path = this.path.slice(0, +row + 1 || 9e9);
+        change = true;
+      }
+      if (change) {
+        return jQuery("body").trigger("searchPathChanged", [this.path]);
       }
     };
 
@@ -483,14 +490,19 @@ joe@afandian.com
 
   CanvasManager = (function() {
 
-    function CanvasManager(canvas) {
+    function CanvasManager(canvas, fillScreen) {
       var _this = this;
       this.canvas = canvas;
+      this.fillScreen = fillScreen;
       this.renderLoop = function() {
         return CanvasManager.prototype.renderLoop.apply(_this, arguments);
       };
       this.redrawEvent = new CustomEvent("redraw");
-      this.canvasSize();
+      this.graphicsContext = this.canvas.getContext("2d");
+      if (this.fillScreen) {
+        window.addEventListener('resize', this.canvasResize, false);
+        this.canvasResize();
+      }
       this.requestFrame = (function() {
         return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || function() {
           return window.setTimeout(callback, 1000 / 60);
@@ -498,11 +510,9 @@ joe@afandian.com
       })();
     }
 
-    CanvasManager.prototype.canvasSize = function() {
+    CanvasManager.prototype.canvasResize = function() {
       this.canvas.width = window.innerWidth;
-      this.canvas.height = window.innerHeight;
-      this.graphicsContext = this.canvas.getContext("2d");
-      return window.addEventListener('resize', this.canvasSize, false);
+      return this.canvas.height = window.innerHeight;
     };
 
     CanvasManager.prototype.render = function() {

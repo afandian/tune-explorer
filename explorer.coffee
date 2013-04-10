@@ -110,7 +110,7 @@ class CanvasKeyboardDrawer
     @SELECTED_LINE_WIDTH = 5
 
     # Marker for Middle XC
-    @MIDDLE_C_MARKER_RADIUS = @WHITE_NOTE_WIDTH / 4
+    @MIDDLE_C_MARKER_RADIUS = @WHITE_NOTE_WIDTH / 5
 
     # Black note offset from corresponding white note
     @BLACK_NOTE_OFFSET = @WHITE_NOTE_WIDTH - @BLACK_NOTE_WIDTH / 2
@@ -412,14 +412,22 @@ class TuneTreeContext
     @drawer.drawSelectionPath(@state.path)
 
   mousemove : (event) =>
-    @interactionState.mouseX = event.x
-    @interactionState.mouseY = event.y
-    pitchRow = @drawer.mousePitchForXY(event.x, event.y)
+    bounds = canvas.getBoundingClientRect()
+    x = event.x - bounds.left
+    y = event.y - bounds.top
+
+    @interactionState.mouseX = x
+    @interactionState.mouseY = y
+    pitchRow = @drawer.mousePitchForXY(x, y)
     if pitchRow != null
       [@interactionState.hoverPitch, @interactionState.hoverRow] = pitchRow
 
   mouseclick : (event) =>
-    pitchRow = @drawer.mousePitchForXY(event.x, event.y)
+    bounds = canvas.getBoundingClientRect()
+    x = event.x - bounds.left
+    y = event.y - bounds.top
+
+    pitchRow = @drawer.mousePitchForXY(x, y)
     if pitchRow != null
       [pitch, row] = pitchRow
 
@@ -435,9 +443,8 @@ class InteractionState
 
 # The current state of the tune tree.
 class TuneTreeState
-  constructor : () ->
+  constructor : (@max_depth) ->
     @path = []
-    @MAX_DEPTH = 10
 
   # Depth of deepest node.
   depth : () ->
@@ -445,14 +452,14 @@ class TuneTreeState
 
   # Any more space for more notes in the path?
   maxed : () ->
-    @depth() < @MAX_DEPTH
+    @depth() < @max_depth
 
   # Select the given pitch at the given depth.
   select : (pitch, row) ->
       change = false
 
       # If we're at the end, expand the path (if we're allowed).
-      if row == @depth() && row < @MAX_DEPTH
+      if row == @depth() && row < @max_depth
           @path.push(pitch)
           change = true
 
@@ -503,17 +510,18 @@ class CanvasManager
 
 
 constructContext = () ->
-  KEYBOARD_HEIGHT = 35
+  KEYBOARD_HEIGHT = 30
   KEY_WIDTH = 15
+  MAX_DEPTH = 20
 
   # Keyboard content logic.
-  keyboard = new Keyboard(60 - (12*3), 60 + (12*3))
+  keyboard = new Keyboard(60 - (12*2), 60 + (12*2))
 
   # For drawing on!
   canvas = document.getElementById("canvas")
 
   # Current state.
-  @state = new TuneTreeState()
+  @state = new TuneTreeState(MAX_DEPTH)
 
   # For drawing!
   keyboardDrawer = new CanvasKeyboardDrawer(keyboard, KEY_WIDTH, KEYBOARD_HEIGHT)

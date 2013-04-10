@@ -8,7 +8,7 @@ joe@afandian.com
 ###
 
 class Searcher
-    constructor : (@resultsElement, @apiUrl) ->
+    constructor : (@resultsElement, @apiUrl, @imageUrl, @tuneUrl) ->
         jQuery("body").bind("searchPathChanged", @search)
 
     search : (event, path) =>
@@ -16,12 +16,34 @@ class Searcher
         args =
             url: query
             dataType: 'jsonp'
-            success: (data) ->
-                console.log(data)
+            success: (data) =>
+                $("#number").text(data.TotalFound)
 
-        jQuery.ajax(args, (data) ->
-            console.log(data)
-        )
+                results = $("#result-list")
+                results.empty()
+                for result in data.Results
+                    docId = result.DocumentId
+                    starts = result.Starts
+                    ends = result.Ends
+                    selectionRange = [starts..ends].join(":")
+                    title = result.Title.join(" / ")
+
+                    imageUrl = @imageUrl + docId + "/"
+                    urlWithSelection = imageUrl + selectionRange + "/"
+
+                    tuneUrl = @tuneUrl + docId + "/"
+
+                    li = $("<li></li>")
+                    li.append($("<a>", href: tuneUrl).text(title).append($("<img>",
+                        src : urlWithSelection
+                        alt : title
+                        class : "selection",
+                        )))
+
+                    results.append(li)
+
+
+        jQuery.ajax(args)
 
     queryString : (path) =>
 
@@ -33,8 +55,9 @@ class Searcher
 
 
 jQuery ->
-    searchResultsElement = document.getElementById("results")
+    searchResultsElement = jQuery("#results")
     API_URL = "http://api-cache.folktunefinder.com/search/"
-    API_URL = "http://folktunefinder.com:8080/search/"
+    INCIPIT_IMAGE_BASE = "http://cache.folktunefinder.com/typeset/dots/incipit/"
+    TUNE_URL = "http://folktunefinder.com/tune/"
 
-    searcher = Searcher(searchResultsElement, API_URL)
+    searcher = Searcher(searchResultsElement, API_URL, INCIPIT_IMAGE_BASE, TUNE_URL)

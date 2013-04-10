@@ -16,10 +16,12 @@ joe@afandian.com
 
   Searcher = (function() {
 
-    function Searcher(resultsElement, apiUrl) {
+    function Searcher(resultsElement, apiUrl, imageUrl, tuneUrl) {
       var _this = this;
       this.resultsElement = resultsElement;
       this.apiUrl = apiUrl;
+      this.imageUrl = imageUrl;
+      this.tuneUrl = tuneUrl;
       this.queryString = function(path) {
         return Searcher.prototype.queryString.apply(_this, arguments);
       };
@@ -30,18 +32,47 @@ joe@afandian.com
     }
 
     Searcher.prototype.search = function(event, path) {
-      var args, query;
+      var args, query,
+        _this = this;
       query = this.queryString(path);
       args = {
         url: query,
         dataType: 'jsonp',
         success: function(data) {
-          return console.log(data);
+          var docId, ends, imageUrl, li, result, results, selectionRange, starts, title, tuneUrl, urlWithSelection, _i, _j, _len, _ref, _results, _results1;
+          $("#number").text(data.TotalFound);
+          results = $("#result-list");
+          results.empty();
+          _ref = data.Results;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            result = _ref[_i];
+            docId = result.DocumentId;
+            starts = result.Starts;
+            ends = result.Ends;
+            selectionRange = (function() {
+              _results1 = [];
+              for (var _j = starts; starts <= ends ? _j <= ends : _j >= ends; starts <= ends ? _j++ : _j--){ _results1.push(_j); }
+              return _results1;
+            }).apply(this).join(":");
+            title = result.Title.join(" / ");
+            imageUrl = _this.imageUrl + docId + "/";
+            urlWithSelection = imageUrl + selectionRange + "/";
+            tuneUrl = _this.tuneUrl + docId + "/";
+            li = $("<li></li>");
+            li.append($("<a>", {
+              href: tuneUrl
+            }).text(title).append($("<img>", {
+              src: urlWithSelection,
+              alt: title,
+              "class": "selection"
+            })));
+            _results.push(results.append(li));
+          }
+          return _results;
         }
       };
-      return jQuery.ajax(args, function(data) {
-        return console.log(data);
-      });
+      return jQuery.ajax(args);
     };
 
     Searcher.prototype.queryString = function(path) {
@@ -57,11 +88,12 @@ joe@afandian.com
   })();
 
   jQuery(function() {
-    var API_URL, searchResultsElement, searcher;
-    searchResultsElement = document.getElementById("results");
+    var API_URL, INCIPIT_IMAGE_BASE, TUNE_URL, searchResultsElement, searcher;
+    searchResultsElement = jQuery("#results");
     API_URL = "http://api-cache.folktunefinder.com/search/";
-    API_URL = "http://folktunefinder.com:8080/search/";
-    return searcher = Searcher(searchResultsElement, API_URL);
+    INCIPIT_IMAGE_BASE = "http://cache.folktunefinder.com/typeset/dots/incipit/";
+    TUNE_URL = "http://folktunefinder.com/tune/";
+    return searcher = Searcher(searchResultsElement, API_URL, INCIPIT_IMAGE_BASE, TUNE_URL);
   });
 
 }).call(this);

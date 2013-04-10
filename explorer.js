@@ -169,7 +169,7 @@ joe@afandian.com
       this.SELECTED_PATH_FILL_STYLE = "rgba(50, 150, 50, 0.5)";
       this.SELECTED_KEY_FILL_STYLE = "rgba(100, 200, 100, 1)";
       this.SELECTED_LINE_WIDTH = 5;
-      this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 4;
+      this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 5;
       this.BLACK_NOTE_OFFSET = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
       this.keyboardOffset = -this.keyOffset(theory.positionRelativeToPitch(this.keyboard.LOWEST_PITCH, MIDDLE_C));
       this.calculateMouseRanges();
@@ -419,18 +419,24 @@ joe@afandian.com
     };
 
     TuneTreeContext.prototype.mousemove = function(event) {
-      var pitchRow;
-      this.interactionState.mouseX = event.x;
-      this.interactionState.mouseY = event.y;
-      pitchRow = this.drawer.mousePitchForXY(event.x, event.y);
+      var bounds, pitchRow, x, y;
+      bounds = canvas.getBoundingClientRect();
+      x = event.x - bounds.left;
+      y = event.y - bounds.top;
+      this.interactionState.mouseX = x;
+      this.interactionState.mouseY = y;
+      pitchRow = this.drawer.mousePitchForXY(x, y);
       if (pitchRow !== null) {
         return this.interactionState.hoverPitch = pitchRow[0], this.interactionState.hoverRow = pitchRow[1], pitchRow;
       }
     };
 
     TuneTreeContext.prototype.mouseclick = function(event) {
-      var pitch, pitchRow, row;
-      pitchRow = this.drawer.mousePitchForXY(event.x, event.y);
+      var bounds, pitch, pitchRow, row, x, y;
+      bounds = canvas.getBoundingClientRect();
+      x = event.x - bounds.left;
+      y = event.y - bounds.top;
+      pitchRow = this.drawer.mousePitchForXY(x, y);
       if (pitchRow !== null) {
         pitch = pitchRow[0], row = pitchRow[1];
         return this.state.select(pitch, row);
@@ -455,9 +461,9 @@ joe@afandian.com
 
   TuneTreeState = (function() {
 
-    function TuneTreeState() {
+    function TuneTreeState(max_depth) {
+      this.max_depth = max_depth;
       this.path = [];
-      this.MAX_DEPTH = 10;
     }
 
     TuneTreeState.prototype.depth = function() {
@@ -465,13 +471,13 @@ joe@afandian.com
     };
 
     TuneTreeState.prototype.maxed = function() {
-      return this.depth() < this.MAX_DEPTH;
+      return this.depth() < this.max_depth;
     };
 
     TuneTreeState.prototype.select = function(pitch, row) {
       var change;
       change = false;
-      if (row === this.depth() && row < this.MAX_DEPTH) {
+      if (row === this.depth() && row < this.max_depth) {
         this.path.push(pitch);
         change = true;
       } else if (row < this.depth()) {
@@ -533,12 +539,13 @@ joe@afandian.com
   })();
 
   constructContext = function() {
-    var KEYBOARD_HEIGHT, KEY_WIDTH, canvas, context, interactionState, keyboard, keyboardDrawer, manager;
-    KEYBOARD_HEIGHT = 35;
+    var KEYBOARD_HEIGHT, KEY_WIDTH, MAX_DEPTH, canvas, context, interactionState, keyboard, keyboardDrawer, manager;
+    KEYBOARD_HEIGHT = 30;
     KEY_WIDTH = 15;
-    keyboard = new Keyboard(60 - (12 * 3), 60 + (12 * 3));
+    MAX_DEPTH = 20;
+    keyboard = new Keyboard(60 - (12 * 2), 60 + (12 * 2));
     canvas = document.getElementById("canvas");
-    this.state = new TuneTreeState();
+    this.state = new TuneTreeState(MAX_DEPTH);
     keyboardDrawer = new CanvasKeyboardDrawer(keyboard, KEY_WIDTH, KEYBOARD_HEIGHT);
     manager = new CanvasManager(canvas, context);
     interactionState = new InteractionState();

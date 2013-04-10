@@ -105,9 +105,9 @@ class CanvasKeyboardDrawer
     @BLACK_NOTE_WIDTH = @WHITE_NOTE_WIDTH / 2
 
     @HOVER_FILL_STYLE = "rgba(200, 10, 10, 1)"
-    @SELECTED_PATH_FILL_STYLE = "rgba(50, 150, 50, 0.5)"
+    @SELECTED_PATH_FILL_STYLE = "rgba(10, 10, 10, 0.7)"
     @SELECTED_KEY_FILL_STYLE = "rgba(100, 200, 100, 1)"
-    @SELECTED_LINE_WIDTH = 5
+    @SELECTED_LINE_WIDTH = 3
 
     # Marker for Middle XC
     @MIDDLE_C_MARKER_RADIUS = @WHITE_NOTE_WIDTH / 5
@@ -337,7 +337,7 @@ class CanvasKeyboardDrawer
         x = @keyOffset(contextualDegree, true) + @keyboardOffset
 
         #@graphicsContext.lineTo(x, vOffset)
-        @graphicsContext.bezierCurveTo(oldX, oldY + @WHITE_NOTE_HEIGHT / 4, x, vOffset - @WHITE_NOTE_HEIGHT / 4, x, vOffset)
+        @graphicsContext.bezierCurveTo(oldX, oldY+10, x, vOffset-10, x, vOffset)
 
         oldX = x
         oldY = vOffset
@@ -442,9 +442,15 @@ class InteractionState
 
 
 # The current state of the tune tree.
+# Construct with a path of MIDI values if wanted.
 class TuneTreeState
-  constructor : (@max_depth) ->
-    @path = []
+  constructor : (@path, @max_depth) ->
+    @path = @path || []
+
+    # TODO: Do this properly.
+    # Without this the event handler isn't yet ready.
+    setTimeout((()=>jQuery("body").trigger("searchPathChanged", [@path])), 0)
+
 
   # Depth of deepest node.
   depth : () ->
@@ -514,6 +520,12 @@ constructContext = () ->
   KEY_WIDTH = 15
   MAX_DEPTH = 20
 
+  # Get the initial state.
+  if (window.location.hash)
+    pitchesStrings = window.location.hash[1..].split(":")
+    pitches = (parseInt(pitch, 10) for pitch in pitchesStrings)
+
+
   # Keyboard content logic.
   keyboard = new Keyboard(60 - (12*2), 60 + (12*2))
 
@@ -521,7 +533,7 @@ constructContext = () ->
   canvas = document.getElementById("canvas")
 
   # Current state.
-  @state = new TuneTreeState(MAX_DEPTH)
+  @state = new TuneTreeState(pitches, MAX_DEPTH)
 
   # For drawing!
   keyboardDrawer = new CanvasKeyboardDrawer(keyboard, KEY_WIDTH, KEYBOARD_HEIGHT)

@@ -22,8 +22,10 @@
           }
           #results {
             left: 450px;
-            width: 500px;
-            position: absolute;
+            width: 550px;
+            position: fixed;
+            height: 100%;
+            overflow: scroll;
             font-family: 'Quicksand', sans-serif;
           }
 
@@ -31,10 +33,6 @@
             padding: 5px;
           }
 
-          #number {
-            width: 100%;
-            text-align: right;
-          }
           #number:before { content: "Results:" ;}
           #result-list {
             width: 500px;
@@ -42,12 +40,17 @@
           #result-list li div { display: block; }
           #result-list li img { display: block; }
 
+          ul {
+            width: 100%;
+          }
+
           h1 {
             position: fixed;
             font-family: 'Julius Sans One', sans-serif;
           }
 
           li {
+            width: 100%;
             border-top: 1px solid black;
             padding-top: 10px;
             padding-bottom: 10px;
@@ -62,16 +65,17 @@
       <div id="results">
         <p>Tune explorer from <a href="http://folktunefinder.com">folktunefinder.com</a>. Explore melodies by clicking keys on the piano to build a tree. FolkTuneFinder will make suggestions. Tunes are matched in any key.</p>
         <p>Result scores can take a few seconds to load.</p>
-        <div id="number"></div>
+        <p id="number"></p>
         <ul id="result-list"></ul>
       </div>
 
       <script src="./jquery-1.9.1.min.js"></script>
 
+      <!-- Nothing to see here. -->
+      <script src="./search.js"></script>
+
       <!-- Take a look at explorer.coffee if you want to see how it works. -->
       <script src="./explorer.js"></script>
 
-      <!-- Nothing to see here. -->
-      <script src="./search.js"></script>
     </body>
 </html>

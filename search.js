@@ -34,6 +34,8 @@ joe@afandian.com
     Searcher.prototype.search = function(event, path) {
       var args, query,
         _this = this;
+      query = "#" + path.join(":");
+      history.replaceState(null, null, query);
       query = this.queryString(path);
       args = {
         url: query,

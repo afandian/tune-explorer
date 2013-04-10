@@ -166,9 +166,9 @@ joe@afandian.com
       this.CANONICAL_BLACK_NOTE_HEIGHT = this.WHITE_NOTE_HEIGHT * 0.5;
       this.BLACK_NOTE_WIDTH = this.WHITE_NOTE_WIDTH / 2;
       this.HOVER_FILL_STYLE = "rgba(200, 10, 10, 1)";
-      this.SELECTED_PATH_FILL_STYLE = "rgba(50, 150, 50, 0.5)";
+      this.SELECTED_PATH_FILL_STYLE = "rgba(10, 10, 10, 0.7)";
       this.SELECTED_KEY_FILL_STYLE = "rgba(100, 200, 100, 1)";
-      this.SELECTED_LINE_WIDTH = 5;
+      this.SELECTED_LINE_WIDTH = 3;
       this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 5;
       this.BLACK_NOTE_OFFSET = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
       this.keyboardOffset = -this.keyOffset(theory.positionRelativeToPitch(this.keyboard.LOWEST_PITCH, MIDDLE_C));
@@ -342,7 +342,7 @@ joe@afandian.com
         vOffset += this.WHITE_NOTE_HEIGHT;
         contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
         x = this.keyOffset(contextualDegree, true) + this.keyboardOffset;
-        this.graphicsContext.bezierCurveTo(oldX, oldY + this.WHITE_NOTE_HEIGHT / 4, x, vOffset - this.WHITE_NOTE_HEIGHT / 4, x, vOffset);
+        this.graphicsContext.bezierCurveTo(oldX, oldY + 10, x, vOffset - 10, x, vOffset);
         oldX = x;
         oldY = vOffset;
       }
@@ -461,9 +461,14 @@ joe@afandian.com
 
   TuneTreeState = (function() {
 
-    function TuneTreeState(max_depth) {
+    function TuneTreeState(path, max_depth) {
+      var _this = this;
+      this.path = path;
       this.max_depth = max_depth;
-      this.path = [];
+      this.path = this.path || [];
+      setTimeout((function() {
+        return jQuery("body").trigger("searchPathChanged", [_this.path]);
+      }), 0);
     }
 
     TuneTreeState.prototype.depth = function() {
@@ -539,13 +544,25 @@ joe@afandian.com
   })();
 
   constructContext = function() {
-    var KEYBOARD_HEIGHT, KEY_WIDTH, MAX_DEPTH, canvas, context, interactionState, keyboard, keyboardDrawer, manager;
+    var KEYBOARD_HEIGHT, KEY_WIDTH, MAX_DEPTH, canvas, context, interactionState, keyboard, keyboardDrawer, manager, pitch, pitches, pitchesStrings;
     KEYBOARD_HEIGHT = 30;
     KEY_WIDTH = 15;
     MAX_DEPTH = 20;
+    if (window.location.hash) {
+      pitchesStrings = window.location.hash.slice(1).split(":");
+      pitches = (function() {
+        var _i, _len, _results;
+        _results = [];
+        for (_i = 0, _len = pitchesStrings.length; _i < _len; _i++) {
+          pitch = pitchesStrings[_i];
+          _results.push(parseInt(pitch, 10));
+        }
+        return _results;
+      })();
+    }
     keyboard = new Keyboard(60 - (12 * 2), 60 + (12 * 2));
     canvas = document.getElementById("canvas");
-    this.state = new TuneTreeState(MAX_DEPTH);
+    this.state = new TuneTreeState(pitches, MAX_DEPTH);
     keyboardDrawer = new CanvasKeyboardDrawer(keyboard, KEY_WIDTH, KEYBOARD_HEIGHT);
     manager = new CanvasManager(canvas, context);
     interactionState = new InteractionState();

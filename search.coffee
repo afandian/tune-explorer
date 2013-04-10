@@ -12,6 +12,11 @@ class Searcher
         jQuery("body").bind("searchPathChanged", @search)
 
     search : (event, path) =>
+        # Update the URL so we can click back on links.
+        # No pushstate stuff. At least not yet.
+        query = "#" + path.join(":")
+        history.replaceState(null, null, query);
+
         query = @queryString(path)
         args =
             url: query

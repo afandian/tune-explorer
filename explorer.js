@@ -168,7 +168,7 @@ joe@afandian.com
       this.HOVER_FILL_STYLE = "rgba(200, 10, 10, 1)";
       this.SELECTED_PATH_FILL_STYLE = "rgba(10, 10, 10, 0.7)";
       this.SELECTED_KEY_FILL_STYLE = "rgba(100, 200, 100, 1)";
-      this.SELECTED_LINE_WIDTH = 3;
+      this.SELECTED_STROKE_WIDTH = 3;
       this.MIDDLE_C_MARKER_RADIUS = this.WHITE_NOTE_WIDTH / 5;
       this.BLACK_NOTE_OFFSET = this.WHITE_NOTE_WIDTH - this.BLACK_NOTE_WIDTH / 2;
       this.keyboardOffset = -this.keyOffset(theory.positionRelativeToPitch(this.keyboard.LOWEST_PITCH, MIDDLE_C));
@@ -277,7 +277,7 @@ joe@afandian.com
         }
       }
       this.graphicsContext.fillStyle = this.BLACK_NOTE_FILL_STYLE;
-      this.graphicsContext.strokeStyle = this.BLACK_NOTE_LINE_STYLE;
+      this.graphicsContext.strokeStyle = this.BLACK_NOTE_STROKE_STYLE;
       this.graphicsContext.lineWidth = 1;
       for (pitch = _j = _ref2 = this.keyboard.LOWEST_PITCH, _ref3 = this.keyboard.HIGHEST_PITCH; _ref2 <= _ref3 ? _j <= _ref3 : _j >= _ref3; pitch = _ref2 <= _ref3 ? ++_j : --_j) {
         contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
@@ -298,7 +298,7 @@ joe@afandian.com
         middleCX = this.keyOffset(theory.positionRelativeToPitch(60, MIDDLE_C)) + this.keyboardOffset;
         graphicsContext.fillStyle = "rgba(0,0,0,0.25)";
         graphicsContext.lineWidth = 1;
-        graphicsContext.strokeStyle = "rgba(0,0,0,0,0.125)";
+        graphicsContext.strokeStyle = "rgba(0,0,0,0.125)";
         graphicsContext.beginPath();
         graphicsContext.arc(middleCX + this.WHITE_NOTE_WIDTH / 2, this.WHITE_NOTE_HEIGHT * 0.75, this.MIDDLE_C_MARKER_RADIUS, 0, 2 * Math.PI, false);
         graphicsContext.fill();
@@ -329,7 +329,7 @@ joe@afandian.com
         return;
       }
       this.graphicsContext.strokeStyle = this.SELECTED_PATH_FILL_STYLE;
-      this.graphicsContext.lineWidth = this.SELECTED_LINE_WIDTH;
+      this.graphicsContext.lineWidth = this.SELECTED_STROKE_WIDTH;
       this.graphicsContext.beginPath();
       contextualDegree = theory.positionRelativeToPitch(path[0], MIDDLE_C);
       x = this.keyOffset(contextualDegree, true) + this.keyboardOffset;
@@ -393,9 +393,9 @@ joe@afandian.com
       this.redraw = function() {
         return TuneTreeContext.prototype.redraw.apply(_this, arguments);
       };
-      window.addEventListener("redraw", this.redraw);
-      window.addEventListener("mousemove", this.mousemove);
-      window.addEventListener("mouseup", this.mouseclick);
+      jQuery("body").bind("redraw", this.redraw);
+      jQuery("body").bind("mousemove", this.mousemove);
+      jQuery("body").bind("mouseup", this.mouseclick);
     }
 
     TuneTreeContext.prototype.run = function() {
@@ -421,8 +421,8 @@ joe@afandian.com
     TuneTreeContext.prototype.mousemove = function(event) {
       var bounds, pitchRow, x, y;
       bounds = canvas.getBoundingClientRect();
-      x = event.x - bounds.left;
-      y = event.y - bounds.top;
+      x = (event.x || event.pageX) - bounds.left;
+      y = (event.y || event.pageY) - bounds.top;
       this.interactionState.mouseX = x;
       this.interactionState.mouseY = y;
       pitchRow = this.drawer.mousePitchForXY(x, y);
@@ -434,8 +434,9 @@ joe@afandian.com
     TuneTreeContext.prototype.mouseclick = function(event) {
       var bounds, pitch, pitchRow, row, x, y;
       bounds = canvas.getBoundingClientRect();
-      x = event.x - bounds.left;
-      y = event.y - bounds.top;
+      x = (event.x || event.pageX) - bounds.left;
+      y = (event.y || event.pageY) - bounds.top;
+      console.log(x, y);
       pitchRow = this.drawer.mousePitchForXY(x, y);
       if (pitchRow !== null) {
         pitch = pitchRow[0], row = pitchRow[1];
@@ -468,7 +469,7 @@ joe@afandian.com
       this.path = this.path || [];
       setTimeout((function() {
         return jQuery("body").trigger("searchPathChanged", [_this.path]);
-      }), 0);
+      }), 100);
     }
 
     TuneTreeState.prototype.depth = function() {
@@ -508,14 +509,14 @@ joe@afandian.com
       this.renderLoop = function() {
         return CanvasManager.prototype.renderLoop.apply(_this, arguments);
       };
-      this.redrawEvent = new CustomEvent("redraw");
+      this.jqBody = jQuery("body");
       this.graphicsContext = this.canvas.getContext("2d");
       if (this.fillScreen) {
         window.addEventListener('resize', this.canvasResize, false);
         this.canvasResize();
       }
       this.requestFrame = (function() {
-        return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || function() {
+        return window.requestAnimationFrame || window.webkitRequestAnimationFrame || window.mozRequestAnimationFrame || function(callback) {
           return window.setTimeout(callback, 1000 / 60);
         };
       })();
@@ -531,7 +532,7 @@ joe@afandian.com
       this.graphicsContext.setTransform(1, 0, 0, 1, 0, 0);
       this.graphicsContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
       this.graphicsContext.restore();
-      return window.dispatchEvent(this.redrawEvent);
+      return this.jqBody.trigger("redraw");
     };
 
     CanvasManager.prototype.renderLoop = function() {

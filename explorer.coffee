@@ -107,7 +107,7 @@ class CanvasKeyboardDrawer
     @HOVER_FILL_STYLE = "rgba(200, 10, 10, 1)"
     @SELECTED_PATH_FILL_STYLE = "rgba(10, 10, 10, 0.7)"
     @SELECTED_KEY_FILL_STYLE = "rgba(100, 200, 100, 1)"
-    @SELECTED_LINE_WIDTH = 3
+    @SELECTED_STROKE_WIDTH = 3
 
     # Marker for Middle XC
     @MIDDLE_C_MARKER_RADIUS = @WHITE_NOTE_WIDTH / 5
@@ -263,7 +263,7 @@ class CanvasKeyboardDrawer
     # Then draw black notes over them.
 
     @graphicsContext.fillStyle = @BLACK_NOTE_FILL_STYLE
-    @graphicsContext.strokeStyle = @BLACK_NOTE_LINE_STYLE
+    @graphicsContext.strokeStyle = @BLACK_NOTE_STROKE_STYLE
     @graphicsContext.lineWidth = 1
 
     for pitch in [@keyboard.LOWEST_PITCH..@keyboard.HIGHEST_PITCH]
@@ -288,7 +288,7 @@ class CanvasKeyboardDrawer
       middleCX = @keyOffset(theory.positionRelativeToPitch(60, MIDDLE_C)) + @keyboardOffset
       graphicsContext.fillStyle = "rgba(0,0,0,0.25)"
       graphicsContext.lineWidth = 1
-      graphicsContext.strokeStyle = "rgba(0,0,0,0,0.125)"
+      graphicsContext.strokeStyle = "rgba(0,0,0,0.125)"
 
       graphicsContext.beginPath()
       graphicsContext.arc(middleCX + @WHITE_NOTE_WIDTH / 2, @WHITE_NOTE_HEIGHT * 0.75, @MIDDLE_C_MARKER_RADIUS, 0, 2 * Math.PI, false)
@@ -322,7 +322,7 @@ class CanvasKeyboardDrawer
       return
 
     @graphicsContext.strokeStyle = @SELECTED_PATH_FILL_STYLE
-    @graphicsContext.lineWidth = @SELECTED_LINE_WIDTH
+    @graphicsContext.lineWidth = @SELECTED_STROKE_WIDTH
     @graphicsContext.beginPath();
 
     contextualDegree = theory.positionRelativeToPitch(path[0], MIDDLE_C)
@@ -365,9 +365,15 @@ class Keyboard
 # Overall context for tune tree.
 class TuneTreeContext
   constructor: (@manager, @state, @drawer, @interactionState) ->
-    window.addEventListener("redraw", @redraw)
-    window.addEventListener("mousemove", @mousemove)
-    window.addEventListener("mouseup", @mouseclick)
+
+    # Using JQuery event for now.
+    # window.addEventListener("redraw", @redraw)
+    # window.addEventListener("mousemove", @mousemove)
+    # window.addEventListener("mouseup", @mouseclick)
+    jQuery("body").bind("redraw", @redraw)
+    jQuery("body").bind("mousemove", @mousemove)
+    jQuery("body").bind("mouseup", @mouseclick)
+
 
   run: () ->
     # Start the render loop in motion.
@@ -413,8 +419,8 @@ class TuneTreeContext
 
   mousemove : (event) =>
     bounds = canvas.getBoundingClientRect()
-    x = event.x - bounds.left
-    y = event.y - bounds.top
+    x = (event.x || event.pageX) - bounds.left
+    y = (event.y || event.pageY) - bounds.top
 
     @interactionState.mouseX = x
     @interactionState.mouseY = y
@@ -424,8 +430,9 @@ class TuneTreeContext
 
   mouseclick : (event) =>
     bounds = canvas.getBoundingClientRect()
-    x = event.x - bounds.left
-    y = event.y - bounds.top
+    x = (event.x || event.pageX) - bounds.left
+    y = (event.y || event.pageY) - bounds.top
+    console.log(x, y)
 
     pitchRow = @drawer.mousePitchForXY(x, y)
     if pitchRow != null
@@ -449,8 +456,7 @@ class TuneTreeState
 
     # TODO: Do this properly.
     # Without this the event handler isn't yet ready.
-    setTimeout((()=>jQuery("body").trigger("searchPathChanged", [@path])), 0)
-
+    setTimeout((()=>jQuery("body").trigger("searchPathChanged", [@path])), 100)
 
   # Depth of deepest node.
   depth : () ->
@@ -484,7 +490,11 @@ class TuneTreeState
 
 class CanvasManager
   constructor: (@canvas, @fillScreen) ->
-    @redrawEvent = new CustomEvent("redraw")
+    @jqBody = jQuery("body")
+
+    # Using JQuery event for now.
+    # @redrawEvent = new CustomEvent("redraw")
+
     @graphicsContext = @canvas.getContext("2d")
 
     if @fillScreen
@@ -495,7 +505,7 @@ class CanvasManager
       return window.requestAnimationFrame       ||
       window.webkitRequestAnimationFrame ||
       window.mozRequestAnimationFrame    ||
-      () -> window.setTimeout(callback, 1000 / 60))()
+      (callback) -> window.setTimeout(callback, 1000 / 60))()
 
   canvasResize: () ->
     @canvas.width = window.innerWidth
@@ -508,7 +518,9 @@ class CanvasManager
     @graphicsContext.clearRect(0, 0, @canvas.width, @canvas.height)
     @graphicsContext.restore()
 
-    window.dispatchEvent(@redrawEvent)
+    # Using JQuery event for now.
+    # window.dispatchEvent(@redrawEvent)
+    @jqBody.trigger("redraw")
 
   renderLoop: =>
     @render()

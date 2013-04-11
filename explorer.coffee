@@ -316,7 +316,7 @@ class CanvasKeyboardDrawer
       @graphicsContext.strokeRect(x, 0, @BLACK_NOTE_WIDTH, @BLACK_NOTE_HEIGHT)
 
   drawSelectionPath : (path) ->
-    vOffset = @WHITE_NOTE_WIDTH  * 0.50
+    vOffset = @WHITE_NOTE_HEIGHT  * 0.50
 
     if path.length == 0
       return
@@ -336,8 +336,9 @@ class CanvasKeyboardDrawer
         contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C)
         x = @keyOffset(contextualDegree, true) + @keyboardOffset
 
-        #@graphicsContext.lineTo(x, vOffset)
-        @graphicsContext.bezierCurveTo(oldX, oldY+10, x, vOffset-10, x, vOffset)
+        @graphicsContext.lineTo(x, vOffset - @WHITE_NOTE_HEIGHT * 0.25)
+        @graphicsContext.lineTo(x, vOffset + @WHITE_NOTE_HEIGHT * 0.25)
+        #@graphicsContext.bezierCurveTo(oldX, oldY, x, vOffset, x, vOffset)
 
         oldX = x
         oldY = vOffset

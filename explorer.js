@@ -324,7 +324,7 @@ joe@afandian.com
 
     CanvasKeyboardDrawer.prototype.drawSelectionPath = function(path) {
       var contextualDegree, oldX, oldY, pitch, vOffset, x, _i, _len, _ref;
-      vOffset = this.WHITE_NOTE_WIDTH * 0.50;
+      vOffset = this.WHITE_NOTE_HEIGHT * 0.50;
       if (path.length === 0) {
         return;
       }
@@ -342,7 +342,8 @@ joe@afandian.com
         vOffset += this.WHITE_NOTE_HEIGHT;
         contextualDegree = theory.positionRelativeToPitch(pitch, MIDDLE_C);
         x = this.keyOffset(contextualDegree, true) + this.keyboardOffset;
-        this.graphicsContext.bezierCurveTo(oldX, oldY + 10, x, vOffset - 10, x, vOffset);
+        this.graphicsContext.lineTo(x, vOffset - this.WHITE_NOTE_HEIGHT * 0.25);
+        this.graphicsContext.lineTo(x, vOffset + this.WHITE_NOTE_HEIGHT * 0.25);
         oldX = x;
         oldY = vOffset;
       }

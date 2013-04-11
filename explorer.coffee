@@ -418,16 +418,9 @@ class TuneTreeContext
     @drawer.drawSelectionPath(@state.path)
 
   mousemove : (event) =>
-    if (event.offsetX)
-        x = event.offsetX;
-        y = event.offsetY;
-
-    else if (event.layerX)
-        x = event.layerX;
-        y = event.layerY;
-    else
-        x = 0
-        y = 0
+    bounds = canvas.getBoundingClientRect()
+    x = event.clientX - bounds.left
+    y = event.clientY - bounds.top
 
     @interactionState.mouseX = x
     @interactionState.mouseY = y
@@ -436,16 +429,9 @@ class TuneTreeContext
       [@interactionState.hoverPitch, @interactionState.hoverRow] = pitchRow
 
   mouseclick : (event) =>
-    if (event.offsetX)
-        x = event.offsetX;
-        y = event.offsetY;
-
-    else if (event.layerX)
-        x = event.layerX;
-        y = event.layerY;
-    else
-        x = 0
-        y = 0
+    bounds = canvas.getBoundingClientRect()
+    x = event.clientX - bounds.left
+    y = event.clientY - bounds.top
 
     pitchRow = @drawer.mousePitchForXY(x, y)
     if pitchRow != null

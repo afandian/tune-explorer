@@ -419,17 +419,10 @@ joe@afandian.com
     };
 
     TuneTreeContext.prototype.mousemove = function(event) {
-      var pitchRow, x, y;
-      if (event.offsetX) {
-        x = event.offsetX;
-        y = event.offsetY;
-      } else if (event.layerX) {
-        x = event.layerX;
-        y = event.layerY;
-      } else {
-        x = 0;
-        y = 0;
-      }
+      var bounds, pitchRow, x, y;
+      bounds = canvas.getBoundingClientRect();
+      x = event.clientX - bounds.left;
+      y = event.clientY - bounds.top;
       this.interactionState.mouseX = x;
       this.interactionState.mouseY = y;
       pitchRow = this.drawer.mousePitchForXY(x, y);
@@ -439,17 +432,10 @@ joe@afandian.com
     };
 
     TuneTreeContext.prototype.mouseclick = function(event) {
-      var pitch, pitchRow, row, x, y;
-      if (event.offsetX) {
-        x = event.offsetX;
-        y = event.offsetY;
-      } else if (event.layerX) {
-        x = event.layerX;
-        y = event.layerY;
-      } else {
-        x = 0;
-        y = 0;
-      }
+      var bounds, pitch, pitchRow, row, x, y;
+      bounds = canvas.getBoundingClientRect();
+      x = event.clientX - bounds.left;
+      y = event.clientY - bounds.top;
       pitchRow = this.drawer.mousePitchForXY(x, y);
       if (pitchRow !== null) {
         pitch = pitchRow[0], row = pitchRow[1];

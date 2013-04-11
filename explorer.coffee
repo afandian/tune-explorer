@@ -371,8 +371,8 @@ class TuneTreeContext
     # window.addEventListener("mousemove", @mousemove)
     # window.addEventListener("mouseup", @mouseclick)
     jQuery("body").bind("redraw", @redraw)
-    jQuery("body").bind("mousemove", @mousemove)
-    jQuery("body").bind("mouseup", @mouseclick)
+    jQuery(@manager.canvas).bind("mousemove", @mousemove)
+    jQuery(@manager.canvas).bind("mouseup", @mouseclick)
 
 
   run: () ->
@@ -418,9 +418,16 @@ class TuneTreeContext
     @drawer.drawSelectionPath(@state.path)
 
   mousemove : (event) =>
-    bounds = canvas.getBoundingClientRect()
-    x = (event.x || event.pageX) - bounds.left
-    y = (event.y || event.pageY) - bounds.top
+    if (event.offsetX)
+        x = event.offsetX;
+        y = event.offsetY;
+
+    else if (event.layerX)
+        x = event.layerX;
+        y = event.layerY;
+    else
+        x = 0
+        y = 0
 
     @interactionState.mouseX = x
     @interactionState.mouseY = y
@@ -429,10 +436,16 @@ class TuneTreeContext
       [@interactionState.hoverPitch, @interactionState.hoverRow] = pitchRow
 
   mouseclick : (event) =>
-    bounds = canvas.getBoundingClientRect()
-    x = (event.x || event.pageX) - bounds.left
-    y = (event.y || event.pageY) - bounds.top
-    console.log(x, y)
+    if (event.offsetX)
+        x = event.offsetX;
+        y = event.offsetY;
+
+    else if (event.layerX)
+        x = event.layerX;
+        y = event.layerY;
+    else
+        x = 0
+        y = 0
 
     pitchRow = @drawer.mousePitchForXY(x, y)
     if pitchRow != null

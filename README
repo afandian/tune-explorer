@@ -3,7 +3,7 @@ Tune Explorer
 Joe Wass 2013
 joe@afandian.com
 
-An HTML interface to explore the tunes found in FolkTuneFinder, with an interactive tree of pitches.
-This does requre the folktunefinder.com API to be available, so it's of limited use to others. I'm making it public because why not.
+An HTML5 / canvas interface to explore the tunes found in FolkTuneFinder, with an interactive tree of pitches.
+This does requre the folktunefinder.com API to be available, so it's of limited use outside the folktunefinder.com website. I'm making it public because I think that anything involving code and music is interesting.
 
-Written in CoffeeScript, as a learn-the-language exercise.
+Written in CoffeeScript, as a learn-the-language exercise. Conclusion: I like coffeescript.

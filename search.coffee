@@ -10,10 +10,39 @@ joe@afandian.com
 class Searcher
     constructor : (@resultsElement, @apiUrl, @imageUrl, @tuneUrl) ->
         jQuery("body").bind("searchPathChanged", @search)
+        jQuery("#next").bind("click", @goNextPage)
+        jQuery("#prev").bind("click", @goPrevPage)
+
+        @currentPage = 1
+        @nextPage = -1
+        @prevPage = -1
+        @numPages = -1
+
+    # Go to next page or ignore.
+    goNextPage : () =>
+        if @nextPage != -1
+            @currentPage = @nextPage
+            @search()
+
+    # Go to next page or ignore.
+    goPrevPage : () =>
+        if @prevPage != -1
+            @currentPage = @prevPage
+            @search()
 
     search : (event, path) =>
+        # If this is re-raised without a new path, use the previous one.
+        if path == undefined
+            path = @path
+        else
+            @path = path
+
+            # Start at first page for a new search.
+            @currentPage = 1
+
         # Update the URL so we can click back on links.
         # No pushstate stuff. At least not yet.
+
         query = "#" + path.join(":")
         history.replaceState(null, null, query);
 
@@ -22,7 +51,24 @@ class Searcher
             url: query
             dataType: 'jsonp'
             success: (data) =>
-                $("#number").text(data.TotalFound)
+                @prevPage = data.PrevPage
+                @nextPage = data.NextPage
+                @numPages = data.NumPages
+
+                if @nextPage > 0
+                    jQuery("#next").show()
+                else
+                    jQuery("#next").hide()
+
+                if @prevPage > 0
+                    jQuery("#prev").show()
+                else
+                    jQuery("#prev").hide()
+
+
+                tuneWord = "tune" + if data.TotalFound == 1 then "" else "s"
+
+                $("#summary").text("Found " + data.TotalFound + " " + tuneWord + ". Page " + @currentPage + " of " + @numPages + ".")
 
                 results = $("#result-list")
                 results.empty()
@@ -30,11 +76,17 @@ class Searcher
                     docId = result.DocumentId
                     starts = result.Starts
                     ends = result.Ends
-                    selectionRange = [starts..ends].join(":")
-                    title = result.Title.join(" / ")
 
+                    title = result.Title.join(" / ")
+                    if title.length == 0
+                        title = "(no title)"
                     imageUrl = @imageUrl + docId + "/"
-                    urlWithSelection = imageUrl + selectionRange + "/"
+                    if starts != -1 and ends != -1
+                        selectionRange = [starts..ends].join(":")
+                        urlWithSelection = imageUrl + selectionRange + "/"
+                    else
+                        urlWithSelection = imageUrl
+
 
                     tuneUrl = @tuneUrl + docId + "/"
 
@@ -47,13 +99,18 @@ class Searcher
 
                     results.append(li)
 
+                $("html, body").animate({ scrollTop: 0 }, "slow");
+
 
         jQuery.ajax(args)
 
     queryString : (path) =>
+        # Take first page or the most recently requested one.
+        page = if @currentPage != -1 then @currentPage else 1
 
         params =
             melody: path.join(",")
+            page: page
 
         return @apiUrl + "?" + jQuery.param(params) #+ "?callback=callback"
 

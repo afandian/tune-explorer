@@ -28,12 +28,44 @@ joe@afandian.com
       this.search = function(event, path) {
         return Searcher.prototype.search.apply(_this, arguments);
       };
+      this.goPrevPage = function() {
+        return Searcher.prototype.goPrevPage.apply(_this, arguments);
+      };
+      this.goNextPage = function() {
+        return Searcher.prototype.goNextPage.apply(_this, arguments);
+      };
       jQuery("body").bind("searchPathChanged", this.search);
+      jQuery("#next").bind("click", this.goNextPage);
+      jQuery("#prev").bind("click", this.goPrevPage);
+      this.currentPage = 1;
+      this.nextPage = -1;
+      this.prevPage = -1;
+      this.numPages = -1;
     }
+
+    Searcher.prototype.goNextPage = function() {
+      if (this.nextPage !== -1) {
+        this.currentPage = this.nextPage;
+        return this.search();
+      }
+    };
+
+    Searcher.prototype.goPrevPage = function() {
+      if (this.prevPage !== -1) {
+        this.currentPage = this.prevPage;
+        return this.search();
+      }
+    };
 
     Searcher.prototype.search = function(event, path) {
       var args, query,
         _this = this;
+      if (path === void 0) {
+        path = this.path;
+      } else {
+        this.path = path;
+        this.currentPage = 1;
+      }
       query = "#" + path.join(":");
       history.replaceState(null, null, query);
       query = this.queryString(path);
@@ -41,25 +73,45 @@ joe@afandian.com
         url: query,
         dataType: 'jsonp',
         success: function(data) {
-          var docId, ends, imageUrl, li, result, results, selectionRange, starts, title, tuneUrl, urlWithSelection, _i, _j, _len, _ref, _results, _results1;
-          $("#number").text(data.TotalFound);
+          var docId, ends, imageUrl, li, result, results, selectionRange, starts, title, tuneUrl, tuneWord, urlWithSelection, _i, _j, _len, _ref, _results;
+          _this.prevPage = data.PrevPage;
+          _this.nextPage = data.NextPage;
+          _this.numPages = data.NumPages;
+          if (_this.nextPage > 0) {
+            jQuery("#next").show();
+          } else {
+            jQuery("#next").hide();
+          }
+          if (_this.prevPage > 0) {
+            jQuery("#prev").show();
+          } else {
+            jQuery("#prev").hide();
+          }
+          tuneWord = "tune" + (data.TotalFound === 1 ? "" : "s");
+          $("#summary").text("Found " + data.TotalFound + " " + tuneWord + ". Page " + _this.currentPage + " of " + _this.numPages + ".");
           results = $("#result-list");
           results.empty();
           _ref = data.Results;
-          _results = [];
           for (_i = 0, _len = _ref.length; _i < _len; _i++) {
             result = _ref[_i];
             docId = result.DocumentId;
             starts = result.Starts;
             ends = result.Ends;
-            selectionRange = (function() {
-              _results1 = [];
-              for (var _j = starts; starts <= ends ? _j <= ends : _j >= ends; starts <= ends ? _j++ : _j--){ _results1.push(_j); }
-              return _results1;
-            }).apply(this).join(":");
             title = result.Title.join(" / ");
+            if (title.length === 0) {
+              title = "(no title)";
+            }
             imageUrl = _this.imageUrl + docId + "/";
-            urlWithSelection = imageUrl + selectionRange + "/";
+            if (starts !== -1 && ends !== -1) {
+              selectionRange = (function() {
+                _results = [];
+                for (var _j = starts; starts <= ends ? _j <= ends : _j >= ends; starts <= ends ? _j++ : _j--){ _results.push(_j); }
+                return _results;
+              }).apply(this).join(":");
+              urlWithSelection = imageUrl + selectionRange + "/";
+            } else {
+              urlWithSelection = imageUrl;
+            }
             tuneUrl = _this.tuneUrl + docId + "/";
             li = $("<li></li>");
             li.append($("<a>", {
@@ -69,18 +121,22 @@ joe@afandian.com
               alt: title,
               "class": "selection"
             })));
-            _results.push(results.append(li));
+            results.append(li);
           }
-          return _results;
+          return $("html, body").animate({
+            scrollTop: 0
+          }, "slow");
         }
       };
       return jQuery.ajax(args);
     };
 
     Searcher.prototype.queryString = function(path) {
-      var params;
+      var page, params;
+      page = this.currentPage !== -1 ? this.currentPage : 1;
       params = {
-        melody: path.join(",")
+        melody: path.join(","),
+        page: page
       };
       return this.apiUrl + "?" + jQuery.param(params);
     };

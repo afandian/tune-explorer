@@ -524,13 +524,15 @@ joe@afandian.com
 
     CanvasManager.prototype.canvasResize = function() {
       this.canvas.width = window.innerWidth;
-      return this.canvas.height = window.innerHeight;
+      this.canvas.height = window.innerHeight;
+      this.width = this.canvas.width;
+      return this.height = this.canvas.height;
     };
 
     CanvasManager.prototype.render = function() {
       this.graphicsContext.save();
       this.graphicsContext.setTransform(1, 0, 0, 1, 0, 0);
-      this.graphicsContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.graphicsContext.clearRect(0, 0, this.width, this.height);
       this.graphicsContext.restore();
       return this.jqBody.trigger("redraw");
     };

@@ -497,6 +497,9 @@ class CanvasManager
 
     @graphicsContext = @canvas.getContext("2d")
 
+    this.width = @canvas.width
+    this.height = @canvas.height
+
     if @fillScreen
       window.addEventListener('resize', @canvasResize, false)
       @canvasResize()
@@ -510,12 +513,14 @@ class CanvasManager
   canvasResize: () ->
     @canvas.width = window.innerWidth
     @canvas.height = window.innerHeight
+    this.width = @canvas.width
+    this.height = @canvas.height
 
   render: () ->
     # Clear canvas prior to drawing.
     @graphicsContext.save()
     @graphicsContext.setTransform(1, 0, 0, 1, 0, 0)
-    @graphicsContext.clearRect(0, 0, @canvas.width, @canvas.height)
+    @graphicsContext.clearRect(0, 0, this.width, this.height)
     @graphicsContext.restore()
 
     # Using JQuery event for now.
